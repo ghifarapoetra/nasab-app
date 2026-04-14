@@ -23,13 +23,13 @@ export default function TreePage() {
 
   // Load saved theme
   useEffect(()=>{
-    const saved = localStorage.getItem('nasab-theme')
+    const saved = localStorage.getItem('sulalah-theme')
     if (saved) { setTheme(saved); document.documentElement.setAttribute('data-theme', saved) }
   }, [])
 
   function toggleTheme() {
     const next = theme==='light'?'dark':'light'
-    setTheme(next); localStorage.setItem('nasab-theme', next)
+    setTheme(next); localStorage.setItem('sulalah-theme', next)
   }
 
   useEffect(()=>{
