@@ -92,3 +92,57 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; backg
   @page { margin:1.5cm;size:A4 landscape }
 }
 .print-title,.print-sub { display:none }
+
+/* ── THEMED PRINT STYLES ── */
+@media print {
+  body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  .no-print, #dp, button { display: none !important }
+  #cw { height: auto !important; overflow: visible !important; border: none !important }
+
+  /* Clean theme */
+  [data-print-theme="clean"] body { background: #ffffff !important }
+  [data-print-theme="clean"] .pnode.male { background: #f0fdfa !important; border-left-color: #14b8a6 !important }
+  [data-print-theme="clean"] .pnode.female { background: #fff1f2 !important; border-left-color: #e11d48 !important }
+
+  /* Woody theme */
+  [data-print-theme="woody"] body { background: #fdf6ee !important }
+  [data-print-theme="woody"] #ci { background: #fdf6ee !important }
+  [data-print-theme="woody"] .pnode { background: #fef9f0 !important; border-color: #d4a96a !important; border-left-color: #a16207 !important }
+  [data-print-theme="woody"] .node-name { color: #3d2000 !important }
+  [data-print-theme="woody"] .node-year { color: #7a5c2e !important }
+
+  /* Elegant theme */
+  [data-print-theme="elegant"] body { background: #1a1a2e !important }
+  [data-print-theme="elegant"] #ci { background: #1a1a2e !important }
+  [data-print-theme="elegant"] .pnode { background: #16213e !important; border-color: #4a4a6a !important; border-left-color: #e2c97e !important }
+  [data-print-theme="elegant"] .node-name { color: #f0e6d3 !important }
+  [data-print-theme="elegant"] .node-year { color: #b8a98a !important }
+
+  /* Islamic theme */
+  [data-print-theme="islamic"] body { background: #f0f7f0 !important }
+  [data-print-theme="islamic"] #ci { background: #f0f7f0 !important }
+  [data-print-theme="islamic"] .pnode { background: #e8f5e8 !important; border-color: #81c784 !important; border-left-color: #1b5e20 !important }
+  [data-print-theme="islamic"] .node-name { color: #1a3a1a !important }
+
+  /* Gradient theme */
+  [data-print-theme="gradient"] body { background: linear-gradient(135deg, #f0fdfa 0%, #e0f2fe 100%) !important }
+  [data-print-theme="gradient"] .pnode { background: #ffffff !important; border-color: #5eead4 !important; border-left-color: #0d9488 !important }
+
+  /* Watermark Sulalah */
+  #cw::after {
+    content: '🌳 Sulalah — sulalah-app.vercel.app';
+    position: fixed;
+    bottom: 10mm;
+    right: 12mm;
+    font-size: 9px;
+    color: #94a3b8;
+    opacity: .6;
+    font-family: sans-serif;
+  }
+
+  /* Print title */
+  .print-title { display: block !important; font-size: 22px; font-weight: 800; color: #0d9488; margin-bottom: 4px }
+  .print-sub { display: block !important; font-size: 11px; color: #666; margin-bottom: 16px }
+  @page { margin: 1.5cm; size: A4 landscape }
+}
+.print-title, .print-sub { display: none }

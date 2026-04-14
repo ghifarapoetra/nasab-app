@@ -50,7 +50,7 @@ function computeLayout(persons) {
   return { positions, gens, svgW, svgH:Math.max(...gens)*(NH+VG)+NH+PAD*2 }
 }
 
-export default function FamilyTree({ persons, selected, onSelect, theme }) {
+export default function FamilyTree({ persons, selected, onSelect, theme, treeName }) {
   const containerRef=useRef(null)
   const { positions, gens, svgW, svgH } = computeLayout(persons)
   const mah = selected ? getMahram(selected, persons) : null
@@ -108,7 +108,7 @@ export default function FamilyTree({ persons, selected, onSelect, theme }) {
     })
   })
 
-  const self=persons.find(p=>p.is_self)
+  const self=persons.find(p=>p.is_self)||{name:treeName||'Keluarga'}
 
   return (
     <div>

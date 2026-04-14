@@ -21,7 +21,7 @@ export default function AuthPage() {
     if (mode === 'login') {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) setErr('Email atau password salah. Coba lagi.')
-      else router.push('/tree')
+      else router.push('/dashboard')
     } else {
       const { error } = await supabase.auth.signUp({
         email, password,
