@@ -83,13 +83,34 @@ export default function TreePage() {
     const t = THEMES.find(x => x.id === themeId) || THEMES[0]
     setShowPdfModal(false)
     const root = document.documentElement
+    root.setAttribute('data-print-theme', themeId)
     root.style.setProperty('--print-bg', t.preview.bg)
     root.style.setProperty('--print-card', t.preview.card)
     root.style.setProperty('--print-accent', t.preview.accent)
     root.style.setProperty('--print-text', t.preview.text)
     root.style.setProperty('--print-border', t.preview.border)
-    root.setAttribute('data-print-theme', themeId)
-    setTimeout(() => { window.print(); root.removeAttribute('data-print-theme') }, 200)
+    setTimeout(() => {
+      const cw = document.getElementById('cw')
+      const ci = document.getElementById('ci')
+      if (cw && ci) {
+        const treeW = ci.scrollWidth
+        const pageW = 1050
+        if (treeW > pageW) {
+          const scale = pageW / treeW
+          ci.style.transform = `scale(${scale})`
+          ci.style.transformOrigin = 'top left'
+          cw.style.height = `${ci.scrollHeight * scale + 20}px`
+        }
+      }
+      window.print()
+      setTimeout(() => {
+        root.removeAttribute('data-print-theme')
+        const ci2 = document.getElementById('ci')
+        const cw2 = document.getElementById('cw')
+        if (ci2) { ci2.style.transform = ''; ci2.style.transformOrigin = '' }
+        if (cw2) { cw2.style.height = '' }
+      }, 500)
+    }, 300)
   }
 
   const canEdit = userRole === 'owner' || userRole === 'editor'
