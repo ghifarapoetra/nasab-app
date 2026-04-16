@@ -33,7 +33,7 @@ function computeLayout(persons) {
       return xs.length ? xs.reduce((a,b)=>a+b,0)/xs.length : -1
     }
     const visited=new Set(), ordered=[]
-    const sorted=[...ids].sort((a,b)=>{ const ax=pcx(a),bx=pcx(b); if(ax<0&&bx<0)return 0; if(ax<0)return 1; if(bx<0)return -1; return ax-bx })
+    const sorted=[...ids].sort((a,b)=>{ const pa=map[a],pb=map[b],ax=pcx(a),bx=pcx(b); const sameParent=pa?.father_id&&pb?.father_id&&pa.father_id===pb.father_id; if(sameParent&&pa?.birth_order&&pb?.birth_order) return pa.birth_order-pb.birth_order; if(ax<0&&bx<0)return 0; if(ax<0)return 1; if(bx<0)return -1; return ax-bx })
     sorted.forEach(id=>{
       if(visited.has(id)) return
       visited.add(id); ordered.push(id)
