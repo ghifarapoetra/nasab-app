@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '../../lib/supabase'
 
@@ -30,7 +30,7 @@ const FEATURES_PREMIUM = [
   { text: 'Bayar sekali, seumur hidup', ok: true },
 ]
 
-export default function UpgradePage() {
+function UpgradePage() {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -214,5 +214,13 @@ export default function UpgradePage() {
         Premium aktif otomatis setelah pembayaran berhasil. Tidak ada biaya tersembunyi.
       </p>
     </main>
+  )
+}
+
+function UpgradePageWrapper() {
+  return (
+    <Suspense fallback={<div style={{ minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center' }}>Memuat...</div>}>
+      <UpgradePage />
+    </Suspense>
   )
 }
