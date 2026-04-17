@@ -5,7 +5,7 @@ import { createClient } from '../../../lib/supabase'
 import FamilyTree from '../../../components/FamilyTree'
 import PersonForm from '../../../components/PersonForm'
 import DetailPanel from '../../../components/DetailPanel'
-import PdfThemeModal, { THEMES } from '../../../components/PdfThemeModal'
+import PdfThemeModal from '../../../components/PdfThemeModal'
 import MiladBanner from '../../../components/MiladBanner'
 import MembersPanel from '../../../components/MembersPanel'
 
@@ -17,6 +17,7 @@ export default function TreePage() {
   const [view, setView] = useState('tree')
   const [editPerson, setEditPerson] = useState(null)
   const [user, setUser] = useState(null)
+  const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [theme, setTheme] = useState('light')
   const [showPdfModal, setShowPdfModal] = useState(false)
@@ -45,7 +46,10 @@ export default function TreePage() {
     const { data: treeData } = await supabase.from('trees').select('*, profiles(full_name)').eq('id', treeId).single()
     if (!treeData) { router.push('/dashboard'); return }
     setTree({ ...treeData, owner_name: treeData.profiles?.full_name })
-    // Cek role user
+
+    const { data: profileData } = await supabase.from('profiles').select('is_premium, full_name').eq('id', uid).single()
+    setProfile(profileData)
+
     if (treeData.owner_id === uid) setUserRole('owner')
     else {
       const { data: mem } = await supabase.from('tree_members').select('role').eq('tree_id', treeId).eq('user_id', uid).single()
@@ -79,40 +83,6 @@ export default function TreePage() {
     setTheme(next); localStorage.setItem('sulalah-theme', next)
   }
 
-  function handlePrint(themeId) {
-    const t = THEMES.find(x => x.id === themeId) || THEMES[0]
-    setShowPdfModal(false)
-    const root = document.documentElement
-    root.setAttribute('data-print-theme', themeId)
-    root.style.setProperty('--print-bg', t.preview.bg)
-    root.style.setProperty('--print-card', t.preview.card)
-    root.style.setProperty('--print-accent', t.preview.accent)
-    root.style.setProperty('--print-text', t.preview.text)
-    root.style.setProperty('--print-border', t.preview.border)
-    setTimeout(() => {
-      const cw = document.getElementById('cw')
-      const ci = document.getElementById('ci')
-      if (cw && ci) {
-        const treeW = ci.scrollWidth
-        const pageW = 1050
-        if (treeW > pageW) {
-          const scale = pageW / treeW
-          ci.style.transform = `scale(${scale})`
-          ci.style.transformOrigin = 'top left'
-          cw.style.height = `${ci.scrollHeight * scale + 20}px`
-        }
-      }
-      window.print()
-      setTimeout(() => {
-        root.removeAttribute('data-print-theme')
-        const ci2 = document.getElementById('ci')
-        const cw2 = document.getElementById('cw')
-        if (ci2) { ci2.style.transform = ''; ci2.style.transformOrigin = '' }
-        if (cw2) { cw2.style.height = '' }
-      }, 500)
-    }, 300)
-  }
-
   const canEdit = userRole === 'owner' || userRole === 'editor'
   const isOwner = userRole === 'owner'
   const selectedPerson = persons.find(p => p.id === selected)
@@ -122,18 +92,7 @@ export default function TreePage() {
 
   return (
     <main style={{ maxWidth:960,margin:'0 auto',padding:'0 16px 40px' }}>
-      <div className="print-header" style={{ display:'none',marginBottom:12 }}>
-        <div>
-          <div className="print-title" style={{ display:'none',color:'#0d9488',fontSize:22,fontWeight:800 }}>🌳 {tree?.name}</div>
-          <div className="print-sub" style={{ display:'none',color:'#666',fontSize:11 }}>Silsilah keluarga · {persons.length} anggota · sulalah.my.id</div>
-        </div>
-        <div style={{ textAlign:'right',fontSize:10,color:'#999' }}>
-          <div style={{ fontWeight:700,fontSize:13 }}>Sulalah</div>
-          <div>سُلالة — Pohon Silsilah Islam</div>
-        </div>
-      </div>
-      <div className="print-watermark" style={{ display:'none' }}>sulalah.my.id</div>
-    <div className="topbar no-print" style={{ borderRadius:'0 0 14px 14px',marginBottom:16 }}>
+      <div className="topbar no-print" style={{ borderRadius:'0 0 14px 14px',marginBottom:16 }}>
         <div style={{ display:'flex',alignItems:'center',gap:10 }}>
           <button onClick={()=>router.push('/dashboard')} style={{ background:'rgba(255,255,255,.15)',color:'#fff',border:'1px solid rgba(255,255,255,.3)',padding:'5px 10px',borderRadius:20,fontSize:12,cursor:'pointer' }}>← Semua Pohon</button>
           <div>
@@ -142,7 +101,7 @@ export default function TreePage() {
           </div>
         </div>
         <div style={{ display:'flex',gap:8,alignItems:'center',flexWrap:'wrap' }}>
-          {persons.length > 0 && <button onClick={()=>setShowPdfModal(true)} style={{ background:'rgba(255,255,255,.15)',color:'#fff',border:'1px solid rgba(255,255,255,.3)',padding:'6px 12px',borderRadius:20,fontSize:12,cursor:'pointer',fontWeight:600 }}>🖨️ Cetak</button>}
+          {persons.length > 0 && <button onClick={()=>setShowPdfModal(true)} style={{ background:'rgba(255,255,255,.15)',color:'#fff',border:'1px solid rgba(255,255,255,.3)',padding:'6px 12px',borderRadius:20,fontSize:12,cursor:'pointer',fontWeight:600 }}>🖼️ Ekspor Poster</button>}
           {isOwner && <button onClick={()=>{ setShowMembers(!showMembers);setSelected(null) }} style={{ background:'rgba(255,255,255,.15)',color:'#fff',border:'1px solid rgba(255,255,255,.3)',padding:'6px 12px',borderRadius:20,fontSize:12,cursor:'pointer',fontWeight:600 }}>👥 Anggota</button>}
           {canEdit && view==='tree' && <button onClick={()=>{ setEditPerson(null);setView('form') }} style={{ background:'rgba(255,255,255,.15)',color:'#fff',border:'1px solid rgba(255,255,255,.3)',padding:'6px 14px',borderRadius:20,fontSize:13,cursor:'pointer',fontWeight:600 }}>+ Tambah</button>}
           <button onClick={toggleTheme} style={{ background:'rgba(255,255,255,.15)',color:'#fff',border:'1px solid rgba(255,255,255,.3)',padding:'6px 10px',borderRadius:20,fontSize:16,cursor:'pointer',lineHeight:1 }}>{theme==='light'?'🌙':'☀️'}</button>
@@ -181,7 +140,14 @@ export default function TreePage() {
         </div>
       )}
 
-      {showPdfModal && <PdfThemeModal treeName={tree?.name} onPrint={handlePrint} onClose={()=>setShowPdfModal(false)} />}
+      {showPdfModal && (
+        <PdfThemeModal
+          treeName={tree?.name}
+          memberCount={persons.length}
+          isPremium={profile?.is_premium || false}
+          onClose={()=>setShowPdfModal(false)}
+        />
+      )}
     </main>
   )
 }
