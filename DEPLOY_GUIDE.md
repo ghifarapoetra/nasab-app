@@ -1,63 +1,48 @@
-# 🌳 Sulalah v6 — Panduan Deploy Lengkap
+# 🌳 Sulalah — Panduan Deploy v7
 
 ## Urutan deploy (WAJIB berurutan)
 
-### 1. Supabase — Jalankan semua migration
-Buka SQL Editor, jalankan satu per satu:
-- `migration-v3.sql` (multi pohon)
-- `migration-v4.sql` (kolaborasi)
-- `migration-v5.sql` (milad & wafat)
-- `migration-v6.sql` (payment & premium)
+### 1. Supabase — Jalankan migration v7
+Buka SQL Editor, jalankan:
+- `migration-v7.sql` (tabel trakteer_payments)
 
-### 2. Supabase — Buat storage bucket foto
-Jalankan di SQL Editor:
-```sql
-insert into storage.buckets (id, name, public) values ('photos', 'photos', true);
-create policy "Public photos" on storage.objects for select using (bucket_id = 'photos');
-create policy "Users can upload photos" on storage.objects for insert with check (bucket_id = 'photos' and auth.role() = 'authenticated');
-```
+Migration v3-v6 sebelumnya tidak perlu diulang kalau sudah dijalankan.
 
-### 3. Supabase — Setup URL Auth
-Authentication → URL Configuration:
-- Site URL: `https://sulalah-app.vercel.app`
-- Redirect URLs: `https://sulalah-app.vercel.app/**`
+### 2. Trakteer — Setup Webhook
 
-### 4. Midtrans — Daftar & ambil keys
-1. Daftar di dashboard.midtrans.com
-2. Settings → Access Keys → salin Client Key & Server Key (Sandbox dulu)
-3. Settings → Payment → aktifkan QRIS, Transfer Bank, GoPay, OVO, Dana
+1. Login ke [trakteer.id](https://trakteer.id) → Dashboard
+2. Menu: **Integrasi → Webhook**
+3. Masukkan URL endpoint:
+   ```
+   https://sulalah.my.id/api/trakteer-webhook
+   ```
+4. Klik **Send Webhook Test** untuk verifikasi
+5. **Aktifkan Webhook** (toggle ON)
+6. **Salin Token Webhook** — akan dipakai di Vercel
 
-### 5. Midtrans — Setup Webhook
-Settings → Configuration → Notification URL:
-```
-https://sulalah-app.vercel.app/api/webhook
-```
-
-### 6. Vercel — Tambah semua Environment Variables
-Di Vercel → Settings → Environment Variables, tambahkan:
+### 3. Vercel — Environment Variables
 
 | Name | Value |
 |------|-------|
 | `NEXT_PUBLIC_SUPABASE_URL` | https://XXXX.supabase.co |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | sb_publishable_XXXX |
 | `SUPABASE_SERVICE_ROLE_KEY` | sb_secret_XXXX |
-| `NEXT_PUBLIC_MIDTRANS_CLIENT_KEY` | SB-Mid-client-XXXX |
-| `MIDTRANS_SERVER_KEY` | SB-Mid-server-XXXX |
-| `NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION` | false |
-| `MIDTRANS_IS_PRODUCTION` | false |
-| `NEXT_PUBLIC_APP_URL` | https://sulalah-app.vercel.app |
-| `NEXT_PUBLIC_UMROH_LINK` | https://wa.me/NOMORWA?text=... |
+| `TRAKTEER_WEBHOOK_TOKEN` | token dari Trakteer (step 2) |
+| `NEXT_PUBLIC_APP_URL` | https://sulalah.my.id |
+| `NEXT_PUBLIC_UMROH_LINK` | https://wa.me/... |
 
-### 7. Upload ke GitHub → Vercel auto deploy
+Env var Midtrans lama boleh dihapus.
 
-### 8. Test payment (WAJIB sebelum production)
-- Daftar akun baru → coba upgrade
-- Gunakan kartu test Midtrans Sandbox
-- Cek apakah status premium aktif otomatis
+### 4. Push ke GitHub → Vercel auto deploy
 
-### 9. Kalau siap production
-Ganti di Vercel:
-- `NEXT_PUBLIC_MIDTRANS_CLIENT_KEY` → Production key
-- `MIDTRANS_SERVER_KEY` → Production key
-- `NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION` → true
-- `MIDTRANS_IS_PRODUCTION` → true
+### 5. Test Payment
+1. Daftar akun baru di Sulalah
+2. Buka `/upgrade`
+3. Salin email → klik "Ke Trakteer"
+4. Di Trakteer, pilih 1 Pohon (Rp 29.000)
+5. **PENTING:** Paste email di kolom "Pesan dari Supporter"
+6. Bayar via QRIS
+7. Cek 1-3 menit — Premium harus aktif otomatis
+8. Refresh dashboard, konfirmasi status Premium
+
+Jika gagal: cek di `/klaim-premium` untuk klaim manual.

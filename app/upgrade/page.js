@@ -5,17 +5,19 @@ import { createClient } from '../../lib/supabase'
 
 export const dynamic = 'force-dynamic'
 
+const TRAKTEER_URL = 'https://trakteer.id/sulalah/tip'
+
 const FF = [
   { t:'1 pohon keluarga', ok:true },{ t:'Anggota unlimited', ok:true },
   { t:'Deteksi mahram otomatis', ok:true },{ t:'Foto & kontak keluarga', ok:true },
-  { t:'2 tema cetak PDF', ok:true },{ t:'Panel doa & amalan wafat', ok:true },
+  { t:'5 tema ekspor poster', ok:true },{ t:'Panel doa & amalan wafat', ok:true },
   { t:'5 pohon keluarga', ok:false },{ t:'Undang kolaborator', ok:false },
-  { t:'Notifikasi milad Islami', ok:false },{ t:'Semua 5 tema PDF', ok:false },
+  { t:'Notifikasi milad Islami', ok:false },{ t:'10 tema poster premium', ok:false },
 ]
 const FP = [
   { t:'5 pohon keluarga', ok:true },{ t:'Anggota unlimited', ok:true },
   { t:'Deteksi mahram otomatis', ok:true },{ t:'Foto & kontak keluarga', ok:true },
-  { t:'Semua 5 tema cetak PDF', ok:true },{ t:'Panel doa & amalan wafat', ok:true },
+  { t:'Semua 10 tema poster', ok:true },{ t:'Panel doa & amalan wafat', ok:true },
   { t:'Undang kolaborator keluarga', ok:true },{ t:'Notifikasi milad Islami', ok:true },
   { t:'Akses semua fitur mendatang', ok:true },{ t:'Bayar sekali, seumur hidup', ok:true },
 ]
@@ -25,24 +27,13 @@ export default function UpgradePage() {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [paying, setPaying] = useState(false)
-  const [err, setErr] = useState('')
-  const [hasError, setHasError] = useState(false)
-  const [hasPending, setHasPending] = useState(false)
+  const [copied, setCopied] = useState(false)
   const router = useRouter()
 
   useEffect(() => { setMounted(true) }, [])
 
   useEffect(() => {
     if (!mounted) return
-    const params = new URLSearchParams(window.location.search)
-    setHasError(params.get('error') === '1')
-    setHasPending(params.get('pending') === '1')
-    const isProd = process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION === 'true'
-    const script = document.createElement('script')
-    script.src = isProd ? 'https://app.midtrans.com/snap/snap.js' : 'https://app.sandbox.midtrans.com/snap/snap.js'
-    script.setAttribute('data-client-key', process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || '')
-    document.head.appendChild(script)
     const supabase = createClient()
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) { router.push('/auth'); return }
@@ -50,29 +41,16 @@ export default function UpgradePage() {
       supabase.from('profiles').select('*').eq('id', session.user.id).single()
         .then(({ data }) => { setProfile(data); setLoading(false) })
     })
-    return () => { if (document.head.contains(script)) document.head.removeChild(script) }
   }, [mounted, router])
 
-  async function handlePayment() {
-    if (!user) return
-    setPaying(true); setErr('')
-    try {
-      const res = await fetch('/api/payment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, userEmail: user.email, userName: profile?.full_name || '' }),
-      })
-      const data = await res.json()
-      if (data.error) { setErr(`Gagal: ${data.detail?.error_messages?.[0] || data.error}`); setPaying(false); return }
-      if (window.snap) {
-        window.snap.pay(data.token, {
-          onSuccess: () => router.push('/payment-success'),
-          onPending: () => router.push('/upgrade?pending=1'),
-          onError: () => { setErr('Pembayaran gagal. Silakan coba lagi.'); setPaying(false) },
-          onClose: () => setPaying(false),
-        })
-      } else { window.location.href = data.redirect_url }
-    } catch (e) { setErr('Terjadi kesalahan. Coba lagi.'); setPaying(false) }
+  async function copyEmail() {
+    await navigator.clipboard.writeText(user.email)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  function goToTrakteer() {
+    window.open(TRAKTEER_URL, '_blank')
   }
 
   if (!mounted) return null
@@ -99,19 +77,17 @@ export default function UpgradePage() {
         <button onClick={()=>router.push('/dashboard')} style={{ background:'rgba(255,255,255,.15)',color:'#fff',border:'1px solid rgba(255,255,255,.3)',padding:'6px 12px',borderRadius:20,fontSize:12,cursor:'pointer' }}>← Kembali</button>
       </div>
 
-      {hasError && <div style={{ background:'var(--rose-bg)',border:'1px solid var(--rose-b)',borderRadius:10,padding:'10px 14px',marginBottom:14,fontSize:13,color:'var(--rose-t)' }}>⚠ Pembayaran gagal. Silakan coba lagi.</div>}
-      {hasPending && <div style={{ background:'var(--amber-bg)',border:'1px solid var(--amber-b)',borderRadius:10,padding:'10px 14px',marginBottom:14,fontSize:13,color:'var(--amber-t)' }}>⏳ Pembayaran sedang diproses. Premium aktif otomatis setelah dikonfirmasi.</div>}
-
-      <div style={{ textAlign:'center',marginBottom:28 }}>
+      <div style={{ textAlign:'center',marginBottom:24 }}>
         <div style={{ fontSize:40,marginBottom:8 }}>✨</div>
         <h1 style={{ fontSize:26,fontWeight:800,color:'var(--tx)',letterSpacing:'-.5px',marginBottom:8 }}>Sulalah Premium</h1>
-        <p style={{ fontSize:15,color:'var(--tx2)',lineHeight:1.7,marginBottom:16 }}>Bayar sekali, nikmati seumur hidup.<br/>Dukung pengembangan aplikasi silsilah Islami ini.</p>
+        <p style={{ fontSize:15,color:'var(--tx2)',lineHeight:1.7,marginBottom:12 }}>Bayar sekali, nikmati seumur hidup.<br/>Dukung pengembangan aplikasi silsilah Islami ini.</p>
         <div style={{ display:'inline-flex',alignItems:'baseline',gap:6 }}>
           <span style={{ fontSize:40,fontWeight:800,color:'var(--t5)' }}>Rp 29.000</span>
           <span style={{ fontSize:14,color:'var(--tx3)' }}>/ seumur hidup</span>
         </div>
       </div>
 
+      {/* Fitur comparison */}
       <div style={{ display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:24 }}>
         <div className="card">
           <div style={{ fontSize:13,fontWeight:700,color:'var(--tx3)',marginBottom:12 }}>Gratis</div>
@@ -134,27 +110,68 @@ export default function UpgradePage() {
         </div>
       </div>
 
-      <div style={{ background:'var(--surf)',border:'1px solid var(--bd)',borderLeft:'4px solid var(--t4)',borderRadius:12,padding:'14px 18px',marginBottom:24 }}>
+      {/* ── INSTRUKSI PEMBAYARAN TRAKTEER ── */}
+      <div style={{ background:'var(--surf)',border:'2px solid var(--t4)',borderRadius:14,padding:'18px 20px',marginBottom:20 }}>
+        <div style={{ display:'flex',alignItems:'center',gap:8,marginBottom:12 }}>
+          <span style={{ fontSize:24 }}>🌳</span>
+          <div>
+            <div style={{ fontSize:14,fontWeight:700,color:'var(--tx)' }}>Cara Upgrade Premium</div>
+            <div style={{ fontSize:11,color:'var(--tx3)' }}>Pembayaran via Trakteer — QRIS, e-wallet, transfer bank</div>
+          </div>
+        </div>
+
+        {/* Step 1 */}
+        <div style={{ display:'flex',gap:10,marginBottom:12,paddingBottom:12,borderBottom:'1px solid var(--bd)' }}>
+          <div style={{ width:26,height:26,borderRadius:'50%',background:'var(--t5)',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,flexShrink:0 }}>1</div>
+          <div style={{ flex:1 }}>
+            <div style={{ fontSize:13,fontWeight:600,color:'var(--tx)',marginBottom:4 }}>Salin email Anda</div>
+            <div style={{ fontSize:11,color:'var(--tx2)',marginBottom:6 }}>Email ini harus ditulis di kolom pesan saat bayar, agar Premium aktif otomatis.</div>
+            <div style={{ display:'flex',gap:6,alignItems:'center' }}>
+              <code style={{ flex:1,background:'var(--card)',border:'1px solid var(--bd)',borderRadius:6,padding:'6px 10px',fontSize:12,color:'var(--t5)',fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{user?.email}</code>
+              <button onClick={copyEmail} style={{ background:'var(--t5)',color:'#fff',border:'none',borderRadius:6,padding:'6px 12px',fontSize:11,fontWeight:600,cursor:'pointer',whiteSpace:'nowrap' }}>
+                {copied ? '✓ Tersalin!' : '📋 Salin'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Step 2 */}
+        <div style={{ display:'flex',gap:10,marginBottom:12,paddingBottom:12,borderBottom:'1px solid var(--bd)' }}>
+          <div style={{ width:26,height:26,borderRadius:'50%',background:'var(--t5)',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,flexShrink:0 }}>2</div>
+          <div style={{ flex:1 }}>
+            <div style={{ fontSize:13,fontWeight:600,color:'var(--tx)',marginBottom:4 }}>Buka halaman pembayaran</div>
+            <div style={{ fontSize:11,color:'var(--tx2)',marginBottom:8 }}>Pilih <strong>1 Pohon</strong> (Rp 29.000), lalu <strong>tempel email Anda di kolom "Pesan dari Supporter"</strong>. Bayar lewat QRIS, GoPay, OVO, Dana, atau transfer.</div>
+            <button onClick={goToTrakteer} style={{ background:'var(--t5)',color:'#fff',border:'none',borderRadius:24,padding:'10px 20px',fontSize:13,fontWeight:700,cursor:'pointer',display:'inline-flex',alignItems:'center',gap:6 }}>
+              🌳 Ke Trakteer — Bayar Sekarang →
+            </button>
+          </div>
+        </div>
+
+        {/* Step 3 */}
+        <div style={{ display:'flex',gap:10 }}>
+          <div style={{ width:26,height:26,borderRadius:'50%',background:'var(--t5)',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,flexShrink:0 }}>3</div>
+          <div style={{ flex:1 }}>
+            <div style={{ fontSize:13,fontWeight:600,color:'var(--tx)',marginBottom:4 }}>Premium aktif otomatis</div>
+            <div style={{ fontSize:11,color:'var(--tx2)' }}>Setelah pembayaran berhasil, Premium Anda aktif dalam 1-5 menit. Refresh halaman dashboard untuk melihat perubahan.</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Warning */}
+      <div style={{ background:'var(--amber-bg)',border:'1px solid var(--amber-b)',borderRadius:10,padding:'10px 14px',marginBottom:16,fontSize:12,color:'var(--amber-t)',lineHeight:1.6 }}>
+        ⚠️ <strong>Penting:</strong> Pastikan email Anda ({user?.email}) tertulis jelas di kolom pesan saat bayar. Kalau lupa, tidak perlu khawatir — Anda bisa klaim manual di halaman <a href="/klaim-premium" style={{ color:'var(--amber-t)',textDecoration:'underline',fontWeight:700 }}>Klaim Premium</a>.
+      </div>
+
+      {/* Dalil */}
+      <div style={{ background:'var(--surf)',border:'1px solid var(--bd)',borderLeft:'4px solid var(--t4)',borderRadius:12,padding:'14px 18px',marginBottom:16 }}>
         <p style={{ fontSize:16,textAlign:'right',direction:'rtl',lineHeight:2,color:'var(--tx)',fontFamily:'serif',marginBottom:8 }}>مَنْ يَشْفَعْ شَفَاعَةً حَسَنَةً يَكُنْ لَهُ نَصِيبٌ مِنْهَا</p>
         <p style={{ fontSize:12,color:'var(--tx2)',fontStyle:'italic',marginBottom:4 }}>"Barang siapa yang memberikan syafaat yang baik, maka ia akan mendapatkan bagian dari kebaikan tersebut." — QS. An-Nisa: 85</p>
         <p style={{ fontSize:12,color:'var(--tx3)',marginTop:8,lineHeight:1.6 }}>Dengan upgrade Premium, Anda turut mendukung pengembangan aplikasi yang membantu keluarga Muslim menjaga nasab dan silaturahim. Semoga menjadi amal jariyah.</p>
       </div>
 
-      {err && <p style={{ color:'var(--rose-t)',fontSize:13,marginBottom:10,textAlign:'center' }}>⚠ {err}</p>}
-
-      <button onClick={handlePayment} disabled={paying} className="btn btn-primary btn-pill" style={{ width:'100%',justifyContent:'center',fontSize:16,padding:'14px',marginBottom:12 }}>
-        {paying ? '⏳ Membuka pembayaran...' : '✨ Upgrade Sekarang — Rp 29.000 seumur hidup'}
-      </button>
-
-      <div style={{ display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginBottom:16 }}>
-        {['QRIS','Transfer Bank','GoPay / OVO / Dana'].map(m => (
-          <div key={m} style={{ background:'var(--surf)',border:'1px solid var(--bd)',borderRadius:8,padding:'8px',textAlign:'center',fontSize:11,color:'var(--tx2)' }}>✓ {m}</div>
-        ))}
-      </div>
-
       <p style={{ fontSize:11,color:'var(--tx3)',textAlign:'center',lineHeight:1.7 }}>
-        Pembayaran diproses oleh Midtrans — platform pembayaran terpercaya Indonesia.<br/>
-        Premium aktif otomatis setelah pembayaran berhasil. Tidak ada biaya tersembunyi.
+        Pembayaran diproses oleh <strong>Trakteer.id</strong> — platform apresiasi kreator Indonesia.<br/>
+        Premium aktif otomatis setelah pembayaran dikonfirmasi.
       </p>
     </main>
   )
