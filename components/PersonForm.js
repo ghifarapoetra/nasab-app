@@ -2,10 +2,18 @@
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '../lib/supabase'
 
-const EMPTY = { name:'', gender:'male', photo_url:'', birth_year:'', birth_month:'', birth_day:'', death_year:'', phone:'', email:'', father_id:'', mother_id:'', spouse_id:'', birth_order:'', notes:'', wafat_notes:'', notify_milad:false, is_self:false }
+const EMPTY = { name:'', gender:'male', photo_url:'', birth_year:'', birth_month:'', birth_day:'', death_year:'', phone:'', email:'', father_id:'', mother_id:'', notes:'', wafat_notes:'', notify_milad:false, is_self:false, birth_order:'' }
 const MONTHS = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember']
 
-export default function PersonForm({ person, persons, onSave, onDelete, onCancel, isFirst }) {
+// Generate random ID 32 karakter — tidak bisa ditebak
+function randomId(len = 32) {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
+  let s = ''
+  for (let i = 0; i < len; i++) s += chars[Math.floor(Math.random() * chars.length)]
+  return s
+}
+
+export default function PersonForm({ person, persons, onSave, onDelete, onCancel, isFirst, treeId }) {
   const [form, setForm] = useState(EMPTY)
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -15,7 +23,7 @@ export default function PersonForm({ person, persons, onSave, onDelete, onCancel
 
   useEffect(()=>{
     if (person) {
-      setForm({ ...EMPTY, ...person, birth_year:person.birth_year||'', birth_month:person.birth_month||'', birth_day:person.birth_day||'', birth_order:person.birth_order||'', death_year:person.death_year||'', father_id:person.father_id||'', mother_id:person.mother_id||'', spouse_id:person.spouse_id||'' })
+      setForm({ ...EMPTY, ...person, birth_year:person.birth_year||'', birth_month:person.birth_month||'', birth_day:person.birth_day||'', death_year:person.death_year||'', father_id:person.father_id||'', mother_id:person.mother_id||'', birth_order:person.birth_order||'' })
       setPhotoPreview(person.photo_url||null)
     } else { setForm(EMPTY); setPhotoPreview(null) }
   }, [person])
@@ -27,12 +35,34 @@ export default function PersonForm({ person, persons, onSave, onDelete, onCancel
     if (file.size > 3*1024*1024) { setErr('Ukuran foto maksimal 3MB.'); return }
     setUploading(true); setErr('')
     const supabase = createClient()
-    const ext = file.name.split('.').pop()
-    const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-    const { error } = await supabase.storage.from('photos').upload(filename, file, { upsert:true })
-    if (error) { setErr('Gagal upload foto.'); setUploading(false); return }
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
+
+    // PATH RANDOMIZED: photos/{treeId}/{random32chars}-{timestamp}.ext
+    // - Dikelompokkan per tree supaya rapi & mudah cleanup
+    // - Nama file random 32 karakter = tidak bisa ditebak
+    // - Plus timestamp untuk prevent cache collision
+    const tid = treeId || 'untreed'
+    const filename = `${tid}/${randomId(32)}-${Date.now()}.${ext}`
+
+    const { error } = await supabase.storage.from('photos').upload(filename, file, { upsert: false })
+    if (error) { setErr('Gagal upload foto: ' + error.message); setUploading(false); return }
+
     const { data:{ publicUrl } } = supabase.storage.from('photos').getPublicUrl(filename)
     set('photo_url', publicUrl); setPhotoPreview(publicUrl); setUploading(false)
+
+    // Audit log (non-blocking)
+    try {
+      const { data:{ session } } = await supabase.auth.getSession()
+      if (session?.user && tid !== 'untreed') {
+        supabase.from('photo_audit').insert({
+          action: 'upload',
+          user_id: session.user.id,
+          tree_id: tid,
+          photo_path: filename,
+          user_agent: navigator.userAgent.substring(0, 200),
+        })
+      }
+    } catch(_){}
   }
 
   async function handleSave() {
@@ -43,11 +73,10 @@ export default function PersonForm({ person, persons, onSave, onDelete, onCancel
       birth_year: form.birth_year ? parseInt(form.birth_year) : null,
       birth_month: form.birth_month ? parseInt(form.birth_month) : null,
       birth_day: form.birth_day ? parseInt(form.birth_day) : null,
-      birth_order: form.birth_order ? parseInt(form.birth_order) : null,
       death_year: form.death_year ? parseInt(form.death_year) : null,
+      birth_order: form.birth_order ? parseInt(form.birth_order) : null,
       father_id: form.father_id || null,
       mother_id: form.mother_id || null,
-      spouse_id: form.spouse_id || null,
       is_self: isFirst ? true : form.is_self
     })
     setLoading(false)
@@ -56,8 +85,6 @@ export default function PersonForm({ person, persons, onSave, onDelete, onCancel
   const ini = n => n.trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase()||'?'
   const fathers = persons.filter(p=>p.gender==='male'&&p.id!==person?.id)
   const mothers = persons.filter(p=>p.gender==='female'&&p.id!==person?.id)
-  // Pasangan: lawan jenis, bukan diri sendiri
-  const spouses = persons.filter(p=>p.gender!==(form.gender||'male')&&p.id!==person?.id)
   const isDeceased = !!form.death_year
 
   return (
@@ -75,7 +102,8 @@ export default function PersonForm({ person, persons, onSave, onDelete, onCancel
           {photoPreview?<img src={photoPreview} style={{ position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover' }} onError={()=>setPhotoPreview(null)} />:(form.name?ini(form.name):'?')}
         </div>
         <div>
-          <div style={{ fontSize:12,color:'var(--tx2)',marginBottom:5 }}>Foto profil</div>
+          <div style={{ fontSize:12,color:'var(--tx2)',marginBottom:3 }}>Foto profil</div>
+          <div style={{ fontSize:10,color:'var(--tx3)',marginBottom:5,lineHeight:1.4 }}>🔒 Hanya member pohon yang bisa lihat</div>
           <button type="button" className="btn btn-ghost" style={{ fontSize:12,padding:'5px 12px' }} onClick={()=>fileRef.current?.click()} disabled={uploading}>
             {uploading?'Mengupload...':'📷 Upload Foto'}
           </button>
@@ -96,16 +124,8 @@ export default function PersonForm({ person, persons, onSave, onDelete, onCancel
           </select>
         </div>
         <div className="field">
-          <label>Anak ke- <span style={{ color:'var(--tx3)',fontWeight:400 }}>(urutan dalam keluarga)</span></label>
-          <input type="number" value={form.birth_order} onChange={e=>set('birth_order',e.target.value)} placeholder="mis. 1, 2, 3..." min="1" max="30" />
-        </div>
-        <div className="field">
           <label>Tahun Lahir</label>
           <input type="number" value={form.birth_year} onChange={e=>set('birth_year',e.target.value)} placeholder="1975" min="1800" max="2035" />
-        </div>
-        <div className="field">
-          <label>Tahun Wafat <span style={{ color:'var(--tx3)',fontWeight:400 }}>(kosong = masih hidup)</span></label>
-          <input type="number" value={form.death_year} onChange={e=>set('death_year',e.target.value)} placeholder="2020" min="1800" max="2035" />
         </div>
         <div className="field">
           <label>Bulan Lahir <span style={{ color:'var(--tx3)',fontWeight:400 }}>(untuk notifikasi milad)</span></label>
@@ -119,6 +139,14 @@ export default function PersonForm({ person, persons, onSave, onDelete, onCancel
           <input type="number" value={form.birth_day} onChange={e=>set('birth_day',e.target.value)} placeholder="1–31" min="1" max="31" />
         </div>
         <div className="field">
+          <label>Urutan Kelahiran <span style={{ color:'var(--tx3)',fontWeight:400 }}>(anak ke-)</span></label>
+          <input type="number" value={form.birth_order} onChange={e=>set('birth_order',e.target.value)} placeholder="mis. 1 untuk sulung" min="1" max="30" />
+        </div>
+        <div className="field">
+          <label>Tahun Wafat <span style={{ color:'var(--tx3)',fontWeight:400 }}>(kosong = masih hidup)</span></label>
+          <input type="number" value={form.death_year} onChange={e=>set('death_year',e.target.value)} placeholder="2020" min="1800" max="2035" />
+        </div>
+        <div className="field">
           <label>No. HP / WhatsApp</label>
           <input value={form.phone} onChange={e=>set('phone',e.target.value)} placeholder="+62 812 xxxx xxxx" />
         </div>
@@ -126,7 +154,6 @@ export default function PersonForm({ person, persons, onSave, onDelete, onCancel
           <label>Email</label>
           <input type="email" value={form.email} onChange={e=>set('email',e.target.value)} placeholder="nama@email.com" />
         </div>
-
         {!isFirst && <>
           <div className="field">
             <label>Ayah</label>
@@ -142,15 +169,7 @@ export default function PersonForm({ person, persons, onSave, onDelete, onCancel
               {mothers.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
-          <div className="field" style={{ gridColumn:'1/-1' }}>
-            <label>Pasangan <span style={{ color:'var(--tx3)',fontWeight:400 }}>(suami / istri)</span></label>
-            <select value={form.spouse_id} onChange={e=>set('spouse_id',e.target.value)}>
-              <option value="">— belum/tidak ada</option>
-              {spouses.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-          </div>
         </>}
-
         <div className="field" style={{ gridColumn:'1/-1' }}>
           <label>Catatan / Riwayat</label>
           <textarea value={form.notes} onChange={e=>set('notes',e.target.value)} placeholder="mis. Pengasuh Pesantren Al-Falah, lahir di Salatiga..." />
@@ -158,7 +177,7 @@ export default function PersonForm({ person, persons, onSave, onDelete, onCancel
 
         {isDeceased && (
           <div className="field" style={{ gridColumn:'1/-1' }}>
-            <label>☪ Catatan untuk Almarhum/ah</label>
+            <label>☪ Catatan untuk Almarhum/ah <span style={{ color:'var(--tx3)',fontWeight:400 }}>(tampil di panel peringatan)</span></label>
             <textarea value={form.wafat_notes} onChange={e=>set('wafat_notes',e.target.value)} placeholder="mis. Beliau adalah sosok yang penuh kasih..." style={{ minHeight:80 }} />
           </div>
         )}
@@ -169,7 +188,7 @@ export default function PersonForm({ person, persons, onSave, onDelete, onCancel
               <input type="checkbox" checked={form.notify_milad} onChange={e=>set('notify_milad',e.target.checked)} style={{ width:'auto' }} />
               <span>🌙 Ingatkan saya saat milad {form.name||'anggota ini'}</span>
             </label>
-            <div style={{ fontSize:11,color:'var(--tx3)',marginTop:4 }}>Notifikasi berisi pengingat spiritual Islami</div>
+            <div style={{ fontSize:11,color:'var(--tx3)',marginTop:4 }}>Notifikasi berisi pengingat spiritual Islami, bukan sekadar ucapan ulang tahun</div>
           </div>
         )}
       </div>

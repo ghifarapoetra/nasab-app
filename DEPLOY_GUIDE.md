@@ -1,48 +1,40 @@
-# 🌳 Sulalah — Panduan Deploy v7
+# 🌳 Sulalah — Panduan Deploy v8
 
-## Urutan deploy (WAJIB berurutan)
+## Urutan deploy
 
-### 1. Supabase — Jalankan migration v7
+### 1. Supabase — Jalankan migration v8
 Buka SQL Editor, jalankan:
-- `migration-v7.sql` (tabel trakteer_payments)
+- `migration-v8.sql` (privatisasi foto storage + audit log)
 
-Migration v3-v6 sebelumnya tidak perlu diulang kalau sudah dijalankan.
+Migration v3-v7 sebelumnya tidak perlu diulang jika sudah dijalankan.
 
-### 2. Trakteer — Setup Webhook
+### 2. Push ke GitHub → Vercel auto deploy
 
-1. Login ke [trakteer.id](https://trakteer.id) → Dashboard
-2. Menu: **Integrasi → Webhook**
-3. Masukkan URL endpoint:
-   ```
-   https://sulalah.my.id/api/trakteer-webhook
-   ```
-4. Klik **Send Webhook Test** untuk verifikasi
-5. **Aktifkan Webhook** (toggle ON)
-6. **Salin Token Webhook** — akan dipakai di Vercel
+### 3. Test upload foto
+1. Login ke Sulalah, buka pohon apapun
+2. Tambah anggota + upload foto
+3. Verifikasi di Supabase → Storage → bucket `photos`
+   - File baru harus punya path format: `{tree-id}/{random-32-char}-{timestamp}.jpg`
+4. Cek tabel `photo_audit` di SQL Editor — harus ada row baru setiap upload
 
-### 3. Vercel — Environment Variables
+### 4. Foto lama tetap aman
+Foto yang di-upload sebelumnya tetap bisa diakses. URL-nya tidak berubah.
+Hanya upload BARU yang pakai path randomized.
 
-| Name | Value |
-|------|-------|
-| `NEXT_PUBLIC_SUPABASE_URL` | https://XXXX.supabase.co |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | sb_publishable_XXXX |
-| `SUPABASE_SERVICE_ROLE_KEY` | sb_secret_XXXX |
-| `TRAKTEER_WEBHOOK_TOKEN` | token dari Trakteer (step 2) |
-| `NEXT_PUBLIC_APP_URL` | https://sulalah.my.id |
-| `NEXT_PUBLIC_UMROH_LINK` | https://wa.me/... |
+## Prinsip Keamanan
 
-Env var Midtrans lama boleh dihapus.
+- ✅ Bucket `photos` tetap public (untuk simplicity & performance)
+- 🔒 Path file: UUID 32 karakter + timestamp — tidak bisa ditebak
+- 🔒 Per-tree isolation: `photos/{tree-id}/...`
+- 🔒 Audit log setiap upload (siapa, kapan, dari mana)
+- 🔒 Auto-queue delete ketika person dihapus
 
-### 4. Push ke GitHub → Vercel auto deploy
+## Skenario Aman
 
-### 5. Test Payment
-1. Daftar akun baru di Sulalah
-2. Buka `/upgrade`
-3. Salin email → klik "Ke Trakteer"
-4. Di Trakteer, pilih 1 Pohon (Rp 29.000)
-5. **PENTING:** Paste email di kolom "Pesan dari Supporter"
-6. Bayar via QRIS
-7. Cek 1-3 menit — Premium harus aktif otomatis
-8. Refresh dashboard, konfirmasi status Premium
+| Situasi | Hasil |
+|---|---|
+| User A upload foto | Hanya user A & member pohon A yang tahu URL-nya |
+| URL tersebar di WA | Orang luar tidak akan menemukan URL ini kecuali dapat dari app |
+| Hacker coba enumerasi URL | Tidak feasible — 36^32 = 63 miliar miliar kombinasi |
+| User A hapus person | Foto masuk antrian cleanup, hilang dari storage |
 
-Jika gagal: cek di `/klaim-premium` untuk klaim manual.

@@ -132,7 +132,7 @@ export default function TreePage() {
 
       {view==='form' && canEdit && (
         <div className="card">
-          <PersonForm person={editPerson} persons={persons} isFirst={isFirst}
+          <PersonForm person={editPerson} persons={persons} isFirst={isFirst} treeId={treeId}
             onSave={handleSave} onDelete={handleDelete}
             onCancel={()=>{ setView('tree');setEditPerson(null) }} />
         </div>
