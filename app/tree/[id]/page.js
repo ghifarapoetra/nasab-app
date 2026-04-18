@@ -5,7 +5,7 @@ import { createClient } from '../../../lib/supabase'
 import FamilyTree from '../../../components/FamilyTree'
 import PersonForm from '../../../components/PersonForm'
 import DetailPanel from '../../../components/DetailPanel'
-import PdfThemeModal from '../../../components/PdfThemeModal'
+import PosterStudio from '../../../components/PosterStudio'
 import MiladBanner from '../../../components/MiladBanner'
 import MembersPanel from '../../../components/MembersPanel'
 import TreeAvatar from '../../../components/TreeAvatar'
@@ -161,12 +161,11 @@ export default function TreePage() {
       )}
 
       {showPdfModal && (
-        <PdfThemeModal
+        <PosterStudio
           treeName={tree?.name}
-          memberCount={persons.length}
+          treeDesc={tree?.description}
           persons={persons}
-          tree={tree}
-          isPremium={profile?.is_premium || false}
+          ownerName={tree?.owner_name || profile?.full_name}
           onClose={()=>setShowPdfModal(false)}
         />
       )}
