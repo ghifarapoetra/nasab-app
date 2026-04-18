@@ -1,52 +1,31 @@
-# 🌳 Sulalah — Panduan Deploy v9
+# 🌳 Sulalah — Panduan Deploy v10
 
-## Perubahan di v9
+## Perubahan di v10
 
-- ✅ Privacy Policy (/privacy)
-- ✅ Terms of Service (/terms)
-- ✅ Hapus Akun dengan konfirmasi ketat (/hapus-akun)
-- ✅ Checkbox setuju T&S di signup
-- ✅ Footer legal di semua halaman utama
-- ✅ SEO metadata improved
+- 🎨 **Ikon/Foto per Pohon** (FREE fitur untuk semua user)
+  - 10 pilihan ikon Islami (🌳 🌴 🌲 🏡 🕌 📖 ⭐ ☪️ 🌙 🌿)
+  - Upload foto custom (3MB max)
+  - Muncul di dashboard card & topbar pohon
 
 ## Step Deploy
 
-### 1. Push ZIP ke GitHub → Vercel auto deploy
+### 1. Jalankan migration di Supabase
+SQL Editor → paste isi `migration-v10.sql` → Run.
 
-Tidak ada migration SQL baru di v9. Hanya file halaman tambahan.
+Ini cuma tambah 2 kolom (`icon`, `cover_photo_url`) ke tabel `trees`. Data existing aman.
 
-### 2. Setup Email `halo@sulalah.my.id`
+### 2. Push ZIP ke GitHub → Vercel auto deploy
 
-Agar email kontak di dokumen legal berfungsi:
+### 3. Test
+1. Buka dashboard → klik ikon 🎨 di salah satu pohon
+2. Modal pilih ikon/foto muncul
+3. Coba ganti ke ikon lain → Save → ikon baru muncul
+4. Coba upload foto → ikon diganti dengan foto
+5. Buka pohon → topbar dan empty state juga ikut berubah
 
-1. Login Hostinger → Email → sulalah.my.id
-2. Buat akun: `halo@sulalah.my.id`
-3. (Opsional tapi direkomendasikan) Setup forwarder ke Gmail pribadi
+## Catatan
 
-### 3. Test setelah deploy
-
-- Buka https://sulalah.my.id → scroll ke footer → klik link legal
-- Buka https://sulalah.my.id/privacy → pastikan tampil
-- Buka https://sulalah.my.id/terms → pastikan tampil
-- Coba signup akun baru → checkbox T&S harus muncul dan mandatory
-- Login → Dashboard → footer harus muncul dengan link legal
-- Test /hapus-akun (pakai akun test, JANGAN akun utama!)
-
-## File Baru
-
-```
-app/
-  privacy/page.js          → Kebijakan Privasi
-  terms/page.js            → Syarat & Ketentuan
-  hapus-akun/page.js       → Hapus Akun (UI)
-  api/hapus-akun/route.js  → Hapus Akun (API)
-components/
-  LegalLayout.js           → Layout untuk halaman legal
-```
-
-## Catatan Hukum
-
-Dokumen ini dibuat berdasarkan best practice untuk aplikasi indie di Indonesia.
-Untuk kepastian hukum yang lebih kuat (khususnya kalau nanti Sulalah berkembang menjadi
-PT/bisnis resmi), konsultasikan dengan pengacara spesialis teknologi.
-
+- Foto cover pohon tersimpan di bucket `photos` di folder `trees/{tree-id}/cover-*.jpg`
+- Nama file random 24 karakter (tidak bisa ditebak)
+- Hanya **owner pohon** yang bisa ubah ikon/foto
+- Ikon default saat bikin pohon baru: 🌳

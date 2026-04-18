@@ -8,6 +8,8 @@ import DetailPanel from '../../../components/DetailPanel'
 import PdfThemeModal from '../../../components/PdfThemeModal'
 import MiladBanner from '../../../components/MiladBanner'
 import MembersPanel from '../../../components/MembersPanel'
+import TreeAvatar from '../../../components/TreeAvatar'
+import TreeIconPicker from '../../../components/TreeIconPicker'
 
 export default function TreePage() {
   const { id: treeId } = useParams()
@@ -22,6 +24,7 @@ export default function TreePage() {
   const [theme, setTheme] = useState('light')
   const [showPdfModal, setShowPdfModal] = useState(false)
   const [showMembers, setShowMembers] = useState(false)
+  const [showIconPicker, setShowIconPicker] = useState(false)
   const [userRole, setUserRole] = useState('owner')
   const router = useRouter()
 
@@ -76,6 +79,13 @@ export default function TreePage() {
     setView('tree'); setEditPerson(null)
   }
 
+  async function saveTreeIcon(data) {
+    const supabase = createClient()
+    await supabase.from('trees').update(data).eq('id', treeId)
+    setShowIconPicker(false)
+    loadData(user.id)
+  }
+
   function toggleTheme() {
     const next = theme === 'light' ? 'dark' : 'light'
     setTheme(next); localStorage.setItem('sulalah-theme', next)
@@ -92,15 +102,27 @@ export default function TreePage() {
     <main style={{ maxWidth:960,margin:'0 auto',padding:'0 16px 40px' }}>
       <div className="topbar no-print" style={{ borderRadius:'0 0 14px 14px',marginBottom:16 }}>
         <div style={{ display:'flex',alignItems:'center',gap:10 }}>
-          <button onClick={()=>router.push('/dashboard')} style={{ background:'rgba(255,255,255,.15)',color:'#fff',border:'1px solid rgba(255,255,255,.3)',padding:'5px 10px',borderRadius:20,fontSize:12,cursor:'pointer' }}>← Semua Pohon</button>
+          <button onClick={()=>router.push('/dashboard')} style={{ background:'rgba(255,255,255,.15)',color:'#fff',border:'1px solid rgba(255,255,255,.3)',padding:'5px 10px',borderRadius:20,fontSize:12,cursor:'pointer' }}>←</button>
+          {tree && (
+            <button
+              onClick={()=>isOwner && setShowIconPicker(true)}
+              disabled={!isOwner}
+              title={isOwner ? 'Ganti ikon/foto pohon' : ''}
+              style={{ background:'transparent',border:'none',padding:0,cursor:isOwner?'pointer':'default',flexShrink:0 }}>
+              <TreeAvatar tree={tree} size={38} style={{ border:'2px solid rgba(255,255,255,.3)' }} />
+            </button>
+          )}
           <div>
-            <div className="topbar-title">🌳 {tree?.name}</div>
-            <div className="topbar-sub">{persons.length} anggota · Role: {userRole==='owner'?'Pemilik':userRole==='editor'?'Editor':'Penonton'}</div>
+            <div className="topbar-title" style={{ display:'flex',alignItems:'center',gap:6 }}>
+              {tree?.name}
+              {isOwner && <span onClick={()=>setShowIconPicker(true)} style={{ fontSize:11,opacity:.7,cursor:'pointer' }} title="Ganti ikon/foto">✏️</span>}
+            </div>
+            <div className="topbar-sub">{persons.length} anggota · {userRole==='owner'?'Pemilik':userRole==='editor'?'Editor':'Penonton'}</div>
           </div>
         </div>
         <div style={{ display:'flex',gap:8,alignItems:'center',flexWrap:'wrap' }}>
-          {persons.length > 0 && <button onClick={()=>setShowPdfModal(true)} style={{ background:'rgba(255,255,255,.15)',color:'#fff',border:'1px solid rgba(255,255,255,.3)',padding:'6px 12px',borderRadius:20,fontSize:12,cursor:'pointer',fontWeight:600 }}>🖼️ Ekspor Poster</button>}
-          {isOwner && <button onClick={()=>{ setShowMembers(!showMembers);setSelected(null) }} style={{ background:'rgba(255,255,255,.15)',color:'#fff',border:'1px solid rgba(255,255,255,.3)',padding:'6px 12px',borderRadius:20,fontSize:12,cursor:'pointer',fontWeight:600 }}>👥 Anggota</button>}
+          {persons.length > 0 && <button onClick={()=>setShowPdfModal(true)} style={{ background:'rgba(255,255,255,.15)',color:'#fff',border:'1px solid rgba(255,255,255,.3)',padding:'6px 12px',borderRadius:20,fontSize:12,cursor:'pointer',fontWeight:600 }}>🖼️ Ekspor</button>}
+          {isOwner && <button onClick={()=>{ setShowMembers(!showMembers);setSelected(null) }} style={{ background:'rgba(255,255,255,.15)',color:'#fff',border:'1px solid rgba(255,255,255,.3)',padding:'6px 12px',borderRadius:20,fontSize:12,cursor:'pointer',fontWeight:600 }}>👥</button>}
           {canEdit && view==='tree' && <button onClick={()=>{ setEditPerson(null);setView('form') }} style={{ background:'rgba(255,255,255,.15)',color:'#fff',border:'1px solid rgba(255,255,255,.3)',padding:'6px 14px',borderRadius:20,fontSize:13,cursor:'pointer',fontWeight:600 }}>+ Tambah</button>}
           <button onClick={toggleTheme} style={{ background:'rgba(255,255,255,.15)',color:'#fff',border:'1px solid rgba(255,255,255,.3)',padding:'6px 10px',borderRadius:20,fontSize:16,cursor:'pointer',lineHeight:1 }}>{theme==='light'?'🌙':'☀️'}</button>
         </div>
@@ -108,7 +130,7 @@ export default function TreePage() {
 
       {isFirst && view==='tree' && !showMembers && (
         <div style={{ textAlign:'center',padding:'48px 20px' }}>
-          <div style={{ fontSize:52,marginBottom:16 }}>🌳</div>
+          <div style={{ fontSize:52,marginBottom:16 }}>{tree?.icon || '🌳'}</div>
           <h2 style={{ fontSize:20,fontWeight:700,color:'var(--tx)',marginBottom:8 }}>Pohon ini masih kosong</h2>
           <p style={{ fontSize:14,color:'var(--tx2)',marginBottom:24 }}>Mulai dengan menambahkan anggota pertama pohon <strong>{tree?.name}</strong>.</p>
           {canEdit && <button className="btn btn-primary btn-pill" onClick={()=>{ setEditPerson(null);setView('form') }} style={{ fontSize:15,padding:'10px 32px' }}>Mulai Tambah →</button>}
@@ -143,8 +165,19 @@ export default function TreePage() {
           treeName={tree?.name}
           memberCount={persons.length}
           persons={persons}
+          tree={tree}
           isPremium={profile?.is_premium || false}
           onClose={()=>setShowPdfModal(false)}
+        />
+      )}
+
+      {showIconPicker && tree && (
+        <TreeIconPicker
+          treeId={tree.id}
+          currentIcon={tree.icon}
+          currentCoverUrl={tree.cover_photo_url}
+          onSave={saveTreeIcon}
+          onClose={()=>setShowIconPicker(false)}
         />
       )}
     </main>

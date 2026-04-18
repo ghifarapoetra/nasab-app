@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '../../lib/supabase'
 import { getPlanLimits } from '../../lib/premium'
+import TreeAvatar from '../../components/TreeAvatar'
+import TreeIconPicker from '../../components/TreeIconPicker'
 
 export default function Dashboard() {
   const [ownTrees, setOwnTrees] = useState([])
@@ -15,6 +17,7 @@ export default function Dashboard() {
   const [newDesc, setNewDesc] = useState('')
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
+  const [editIconTree, setEditIconTree] = useState(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -50,7 +53,7 @@ export default function Dashboard() {
     setSaving(true); setErr('')
     const supabase = createClient()
     const { data, error } = await supabase.from('trees')
-      .insert({ name: newName.trim(), description: newDesc.trim(), owner_id: user.id })
+      .insert({ name: newName.trim(), description: newDesc.trim(), owner_id: user.id, icon: '🌳' })
       .select().single()
     if (error) { setErr('Gagal membuat pohon.'); setSaving(false); return }
     setSaving(false); setShowNew(false); setNewName(''); setNewDesc('')
@@ -61,6 +64,14 @@ export default function Dashboard() {
     if (!confirm('Hapus pohon ini beserta semua anggotanya?')) return
     const supabase = createClient()
     await supabase.from('trees').delete().eq('id', id)
+    loadData(user.id)
+  }
+
+  async function saveTreeIcon(data) {
+    if (!editIconTree) return
+    const supabase = createClient()
+    await supabase.from('trees').update(data).eq('id', editIconTree.id)
+    setEditIconTree(null)
     loadData(user.id)
   }
 
@@ -126,6 +137,7 @@ export default function Dashboard() {
           <div style={{ fontSize:14,fontWeight:700,color:'var(--tx)',marginBottom:12 }}>🌱 Pohon Keluarga Baru</div>
           <div className="field"><label>Nama Pohon *</label><input value={newName} onChange={e=>setNewName(e.target.value)} placeholder="mis. Keluarga Besar H. Mashudi" autoFocus /></div>
           <div className="field"><label>Deskripsi</label><input value={newDesc} onChange={e=>setNewDesc(e.target.value)} placeholder="mis. Garis keturunan dari Salatiga" /></div>
+          <div style={{ fontSize:11,color:'var(--tx3)',marginBottom:8 }}>💡 Setelah pohon dibuat, Anda bisa pilih ikon atau upload foto cover.</div>
           {err && <p style={{ color:'var(--rose-t)',fontSize:12,marginBottom:8 }}>⚠ {err}</p>}
           <div style={{ display:'flex',gap:8,justifyContent:'flex-end' }}>
             <button className="btn btn-ghost" onClick={()=>{ setShowNew(false);setErr('') }}>Batal</button>
@@ -144,13 +156,14 @@ export default function Dashboard() {
         <div style={{ display:'grid',gap:10,marginBottom:24 }}>
           {ownTrees.map(tree => (
             <div key={tree.id} className="card" style={{ display:'flex',alignItems:'center',gap:12,cursor:'pointer' }} onClick={()=>router.push(`/tree/${tree.id}`)}>
-              <div style={{ width:48,height:48,borderRadius:10,background:'var(--t2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0 }}>🌳</div>
+              <TreeAvatar tree={tree} size={48} />
               <div style={{ flex:1,minWidth:0 }}>
                 <div style={{ fontSize:14,fontWeight:700,color:'var(--tx)' }}>{tree.name}</div>
                 {tree.description&&<div style={{ fontSize:12,color:'var(--tx2)' }}>{tree.description}</div>}
                 <div style={{ fontSize:11,color:'var(--tx3)',marginTop:2 }}>{tree.memberCount} anggota · {new Date(tree.created_at).toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'})}</div>
               </div>
-              <div style={{ display:'flex',gap:5,flexShrink:0 }} onClick={e=>e.stopPropagation()}>
+              <div style={{ display:'flex',gap:5,flexShrink:0,flexWrap:'wrap',justifyContent:'flex-end' }} onClick={e=>e.stopPropagation()}>
+                <button className="btn btn-ghost" style={{ fontSize:11,padding:'5px 9px' }} onClick={()=>setEditIconTree(tree)} title="Atur ikon/foto">🎨</button>
                 <button className="btn btn-ghost" style={{ fontSize:11,padding:'5px 10px' }} onClick={()=>router.push(`/tree/${tree.id}`)}>Buka →</button>
                 <button className="btn btn-danger" style={{ fontSize:11,padding:'5px 10px' }} onClick={()=>deleteTree(tree.id)}>Hapus</button>
               </div>
@@ -165,7 +178,7 @@ export default function Dashboard() {
           <div style={{ display:'grid',gap:10 }}>
             {sharedTrees.map(tree=>(
               <div key={tree.id} className="card" style={{ display:'flex',alignItems:'center',gap:12,cursor:'pointer' }} onClick={()=>router.push(`/tree/${tree.id}`)}>
-                <div style={{ width:48,height:48,borderRadius:10,background:'var(--amber-bg)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0 }}>🌿</div>
+                <TreeAvatar tree={tree} size={48} style={{ background:'var(--amber-bg)' }} />
                 <div style={{ flex:1,minWidth:0 }}>
                   <div style={{ fontSize:14,fontWeight:700,color:'var(--tx)' }}>{tree.name}</div>
                   <div style={{ fontSize:11,color:'var(--tx3)',marginTop:2 }}>Role: <span style={{ color:'var(--amber-t)',fontWeight:600 }}>{tree.role==='editor'?'Editor':'Penonton'}</span></div>
@@ -186,7 +199,7 @@ export default function Dashboard() {
           </div>
           <div style={{ fontSize:12,color:'var(--tx2)',lineHeight:1.8,marginBottom:14 }}>
             ✓ 1 pohon keluarga · ✓ Anggota unlimited · ✓ Deteksi mahram<br/>
-            ✓ Foto & kontak · ✓ Panel doa wafat · ✓ 2 tema PDF
+            ✓ Foto & kontak · ✓ Panel doa wafat · ✓ 5 tema PDF
           </div>
           <button onClick={()=>router.push('/upgrade')} className="btn btn-primary btn-pill" style={{ width:'100%',justifyContent:'center',fontSize:13 }}>
             ✨ Upgrade Premium — Rp 29.000 seumur hidup
@@ -194,7 +207,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Footer dengan link legal */}
+      {/* Footer */}
       <footer style={{ marginTop:40,paddingTop:20,borderTop:'1px solid var(--bd)',textAlign:'center' }}>
         <div style={{ fontSize:11,color:'var(--tx3)',marginBottom:6 }}>
           <a href="/privacy" style={{ color:'var(--tx2)',textDecoration:'none',marginRight:10 }}>Kebijakan Privasi</a>
@@ -207,6 +220,17 @@ export default function Dashboard() {
           📧 halo@sulalah.my.id · 💬 <a href="https://wa.me/6285175132050" target="_blank" rel="noreferrer" style={{ color:'var(--tx3)',textDecoration:'none' }}>WhatsApp Support</a>
         </div>
       </footer>
+
+      {/* Icon picker modal */}
+      {editIconTree && (
+        <TreeIconPicker
+          treeId={editIconTree.id}
+          currentIcon={editIconTree.icon}
+          currentCoverUrl={editIconTree.cover_photo_url}
+          onSave={saveTreeIcon}
+          onClose={()=>setEditIconTree(null)}
+        />
+      )}
     </main>
   )
 }
