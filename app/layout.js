@@ -1,12 +1,17 @@
 import './globals.css'
 
 export const metadata = {
-  title: 'Sulalah — Pohon Silsilah Keluarga',
-  description: 'Pohon silsilah keluarga dengan deteksi mahram otomatis. Jaga nasab, jaga silaturahim.',
-  icons: {
-    icon: '/favicon.svg',
-    shortcut: '/favicon.svg',
-    apple: '/favicon.svg',
+  title: 'Sulalah — Pohon Silsilah Keluarga Muslim',
+  description: 'Pohon silsilah keluarga digital dengan deteksi mahram otomatis. Jaga nasab, jaga silaturahim.',
+  keywords: ['silsilah', 'nasab', 'keluarga', 'mahram', 'muslim', 'pohon keluarga', 'sulalah'],
+  authors: [{ name: 'Ghifara Poetra' }],
+  openGraph: {
+    title: 'Sulalah — Pohon Silsilah Keluarga Muslim',
+    description: 'Pohon silsilah keluarga digital dengan deteksi mahram otomatis.',
+    url: 'https://sulalah.my.id',
+    siteName: 'Sulalah',
+    locale: 'id_ID',
+    type: 'website',
   },
 }
 

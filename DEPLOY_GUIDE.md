@@ -1,40 +1,52 @@
-# 🌳 Sulalah — Panduan Deploy v8
+# 🌳 Sulalah — Panduan Deploy v9
 
-## Urutan deploy
+## Perubahan di v9
 
-### 1. Supabase — Jalankan migration v8
-Buka SQL Editor, jalankan:
-- `migration-v8.sql` (privatisasi foto storage + audit log)
+- ✅ Privacy Policy (/privacy)
+- ✅ Terms of Service (/terms)
+- ✅ Hapus Akun dengan konfirmasi ketat (/hapus-akun)
+- ✅ Checkbox setuju T&S di signup
+- ✅ Footer legal di semua halaman utama
+- ✅ SEO metadata improved
 
-Migration v3-v7 sebelumnya tidak perlu diulang jika sudah dijalankan.
+## Step Deploy
 
-### 2. Push ke GitHub → Vercel auto deploy
+### 1. Push ZIP ke GitHub → Vercel auto deploy
 
-### 3. Test upload foto
-1. Login ke Sulalah, buka pohon apapun
-2. Tambah anggota + upload foto
-3. Verifikasi di Supabase → Storage → bucket `photos`
-   - File baru harus punya path format: `{tree-id}/{random-32-char}-{timestamp}.jpg`
-4. Cek tabel `photo_audit` di SQL Editor — harus ada row baru setiap upload
+Tidak ada migration SQL baru di v9. Hanya file halaman tambahan.
 
-### 4. Foto lama tetap aman
-Foto yang di-upload sebelumnya tetap bisa diakses. URL-nya tidak berubah.
-Hanya upload BARU yang pakai path randomized.
+### 2. Setup Email `halo@sulalah.my.id`
 
-## Prinsip Keamanan
+Agar email kontak di dokumen legal berfungsi:
 
-- ✅ Bucket `photos` tetap public (untuk simplicity & performance)
-- 🔒 Path file: UUID 32 karakter + timestamp — tidak bisa ditebak
-- 🔒 Per-tree isolation: `photos/{tree-id}/...`
-- 🔒 Audit log setiap upload (siapa, kapan, dari mana)
-- 🔒 Auto-queue delete ketika person dihapus
+1. Login Hostinger → Email → sulalah.my.id
+2. Buat akun: `halo@sulalah.my.id`
+3. (Opsional tapi direkomendasikan) Setup forwarder ke Gmail pribadi
 
-## Skenario Aman
+### 3. Test setelah deploy
 
-| Situasi | Hasil |
-|---|---|
-| User A upload foto | Hanya user A & member pohon A yang tahu URL-nya |
-| URL tersebar di WA | Orang luar tidak akan menemukan URL ini kecuali dapat dari app |
-| Hacker coba enumerasi URL | Tidak feasible — 36^32 = 63 miliar miliar kombinasi |
-| User A hapus person | Foto masuk antrian cleanup, hilang dari storage |
+- Buka https://sulalah.my.id → scroll ke footer → klik link legal
+- Buka https://sulalah.my.id/privacy → pastikan tampil
+- Buka https://sulalah.my.id/terms → pastikan tampil
+- Coba signup akun baru → checkbox T&S harus muncul dan mandatory
+- Login → Dashboard → footer harus muncul dengan link legal
+- Test /hapus-akun (pakai akun test, JANGAN akun utama!)
+
+## File Baru
+
+```
+app/
+  privacy/page.js          → Kebijakan Privasi
+  terms/page.js            → Syarat & Ketentuan
+  hapus-akun/page.js       → Hapus Akun (UI)
+  api/hapus-akun/route.js  → Hapus Akun (API)
+components/
+  LegalLayout.js           → Layout untuk halaman legal
+```
+
+## Catatan Hukum
+
+Dokumen ini dibuat berdasarkan best practice untuk aplikasi indie di Indonesia.
+Untuk kepastian hukum yang lebih kuat (khususnya kalau nanti Sulalah berkembang menjadi
+PT/bisnis resmi), konsultasikan dengan pengacara spesialis teknologi.
 

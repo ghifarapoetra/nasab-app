@@ -193,6 +193,20 @@ export default function Dashboard() {
           </button>
         </div>
       )}
+
+      {/* Footer dengan link legal */}
+      <footer style={{ marginTop:40,paddingTop:20,borderTop:'1px solid var(--bd)',textAlign:'center' }}>
+        <div style={{ fontSize:11,color:'var(--tx3)',marginBottom:6 }}>
+          <a href="/privacy" style={{ color:'var(--tx2)',textDecoration:'none',marginRight:10 }}>Kebijakan Privasi</a>
+          ·
+          <a href="/terms" style={{ color:'var(--tx2)',textDecoration:'none',margin:'0 10px' }}>Syarat & Ketentuan</a>
+          ·
+          <a href="/hapus-akun" style={{ color:'var(--tx2)',textDecoration:'none',marginLeft:10 }}>Hapus Akun</a>
+        </div>
+        <div style={{ fontSize:10,color:'var(--tx3)' }}>
+          📧 halo@sulalah.my.id · 💬 <a href="https://wa.me/6285175132050" target="_blank" rel="noreferrer" style={{ color:'var(--tx3)',textDecoration:'none' }}>WhatsApp Support</a>
+        </div>
+      </footer>
     </main>
   )
 }
