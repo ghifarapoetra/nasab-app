@@ -1,35 +1,47 @@
-# 🌳 Sulalah — Panduan Deploy v11 (HYBRID EXPORT)
+# 🌳 Sulalah — Deploy v11.2
 
-## Perubahan Besar di v11
+## Perubahan dari v11.1
 
-**2 Mode Ekspor:**
+### 🔧 Fix Favicon
+- Problem: favicon globe default Chrome muncul lagi (bukan 🌳 Sulalah)
+- Cause: layout.js tidak punya link/metadata icon eksplisit
+- Fix:
+  - Tambah `icons` metadata di `app/layout.js`
+  - Tambah `<link rel="icon">` eksplisit di `<head>`
+  - Copy favicon ke `app/icon.svg` (Next.js 14 auto-detect convention)
 
-### 1. Ekspor Langsung 💾
-- Generate PNG/PDF dari Sulalah
-- 5 tema (Bersih, Kayu Jati, Hijau Daun, Langit Subuh, Coklat Kertas)
-- 4 ukuran (IG Story, IG Post, A4 Portrait, A4 Landscape)
-- Layout horizontal klasik dengan **multi-row auto-wrap**
-- Siap pakai, cepat, offline-capable
+### 📐 Ukuran Baru — A3 & Kuarto
+Sekarang tersedia 8 ukuran (sebelumnya 4):
+- Instagram Story (1080×1920)
+- Instagram Post (1080×1080)
+- A4 Portrait / Landscape (2480×3508 / 3508×2480)
+- **A3 Portrait / Landscape** (3508×4961 / 4961×3508) ⭐ BARU
+- **Kuarto Portrait / Landscape** (2550×3300 / 3300×2550) ⭐ BARU
 
-### 2. Prompt untuk Gemini AI 🎨 (FITUR UNIK)
-- Generate prompt detail & siap pakai
-- 5 style artistik:
-  - 🕌 **Islami Klasik** — kaligrafi, arabesque, emas-hijau
-  - ✨ **Modern Minimalis** — bersih, indigo, negative space
-  - 📜 **Vintage Manuskrip** — sepia, ornamen floral Victorian
-  - 🌸 **Nusantara Batik** — motif batik, sogan palette
-  - 🌙 **Elegan Malam** — dark mode, emas, starfield
-- User copy prompt → paste ke gemini.google.com → hasil studio-grade
-- **Selling point unik Sulalah** — no family tree app lain yang punya ini!
+A3 cocok untuk pohon besar yang butuh ruang lega.
+Kuarto (Letter US, 8.5"×11") umum dipakai untuk dokumen resmi Indonesia.
 
-## Fix Layout Bug dari v11-preview
+### ✨ Prompt Gemini Lebih Akurat
 
-- ✅ **Generasi urut dengan benar** (Gen I/tertua di ATAS, termuda di BAWAH)
-- ✅ **Font loading fix** — Google Fonts pre-loaded via document.fonts.load()
-- ✅ **Text wrapping** — nama panjang wrap ke 2 baris max
-- ✅ **Multi-row per generation** — saat >N anggota, otomatis wrap ke baris baru
-- ✅ **Adaptive scaling** — kalau pohon terlalu panjang, auto-scale down
-- ✅ **Min card width** — tidak bakal mengecil ekstrim lagi
+**Masalah sebelumnya:** Gemini ngarang data (menambah anggota, salah hubungan)
+
+**Fix — prompt v2 sekarang:**
+1. **Explicit "JANGAN DITAMBAH/DIKURANGI/DIUBAH"** di awal prompt
+2. **Hierarki per generasi** lengkap dengan counter ("Generasi II — 4 orang")
+3. **Daftar relationships eksplisit** ("Rifamumza anak dari ayah: Arif Agus")
+4. **Daftar saudara kandung** untuk membantu AI tahu siapa yang sejajar
+5. **Verifikasi akhir** — checklist yang AI harus confirm
+6. **Larangan keras** tertulis jelas
+
+Ini membuat AI jauh lebih disiplin mengikuti data, bukan mengarang.
+
+## File yang Diupdate
+
+- `app/layout.js` — favicon metadata
+- `app/icon.svg` — BARU (copy dari public/favicon.svg)
+- `lib/posterThemes.js` — tambah A3 & Kuarto
+- `lib/posterEngine.js` — PDF export support A3 & Kuarto
+- `lib/geminiPrompt.js` — rewrite untuk akurasi tinggi
 
 ## Step Deploy
 
@@ -37,43 +49,27 @@
 
 Tidak ada migration SQL baru.
 
-### 2. Test
+### 2. Test Favicon
 
-**Direct Mode:**
-1. Buka pohon apapun → klik **🖼️ Ekspor**
-2. Pilih **💾 Ekspor Langsung**
-3. Wizard 4 step: Ukuran → Tema → Pengaturan → Preview
-4. Ekspor PNG atau PDF
-5. Cek: generasi terurut benar, nama terbaca, layout rapi
+- Buka https://sulalah.my.id di Incognito (bypass cache)
+- Lihat tab browser: harus muncul ikon pohon Sulalah, bukan globe
+- Kalau masih globe, hard refresh (Ctrl+Shift+R)
 
-**Gemini Mode:**
-1. Klik **🖼️ Ekspor** → pilih **🎨 Buat Prompt Gemini**
-2. Wizard 3 step: Ukuran → Style → Copy Prompt
-3. Klik **Copy Prompt**
-4. Buka https://gemini.google.com di tab baru
-5. Paste prompt → submit
-6. Hasil harusnya: poster artistic premium dengan gaya yang dipilih
-7. (Kalau kurang pas, minta Gemini revisi: "buat lebih detail", "warna lebih gelap", dll)
+### 3. Test Ukuran Baru
 
-## File Structure v11
+- Klik 🖼️ Ekspor → Ekspor Langsung
+- Di Step 1 (pilih ukuran), sekarang ada 8 opsi termasuk A3 & Kuarto
+- Pilih A3 Landscape, lanjutkan sampai preview
+- Download PDF — harusnya ukuran A3 (297×420 mm)
 
-```
-lib/
-  posterEngine.js       → Canvas renderer (FIXED layout)
-  posterThemes.js       → 5 tema + 4 ukuran
-  posterStats.js        → Stats calculator
-  geminiPrompt.js       → NEW: Gemini prompt generator (5 style)
-components/
-  PosterStudio.js       → NEW: Hybrid export wizard (direct + gemini)
-```
+### 4. Test Prompt Gemini
 
-## Tip Marketing
-
-Ini fitur yang bisa kamu highlight di landing page:
-
-> **🎨 Tidak puas dengan tema default?**
-> Sulalah punya fitur **Export to Gemini** — dapatkan prompt siap pakai
-> untuk generate poster silsilah dengan AI. **Hasilnya kualitas studio**,
-> gratis pakai Gemini.
-
-Ini bakal jadi differentiator kuat dari app silsilah lain.
+- Klik 🖼️ Ekspor → Buat Prompt Gemini
+- Pilih ukuran & style
+- Copy prompt → paste ke gemini.google.com
+- Prompt sekarang punya **structured data lebih jelas**:
+  - Hierarki generasi
+  - Daftar relationships eksplisit
+  - Daftar saudara kandung
+  - Verifikasi checklist
+- Hasil Gemini harus lebih akurat, tidak ngarang
