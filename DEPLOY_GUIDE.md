@@ -1,79 +1,79 @@
-# 🌳 Sulalah — Panduan Deploy v11
+# 🌳 Sulalah — Panduan Deploy v11 (HYBRID EXPORT)
 
-## Perubahan di v11: Sulalah Poster Studio
+## Perubahan Besar di v11
 
-Total overhaul fitur ekspor. Sekarang bukan "screenshot" tree view,
-tapi **artwork baru** yang di-render dari data silsilah.
+**2 Mode Ekspor:**
 
-### Fitur Baru
+### 1. Ekspor Langsung 💾
+- Generate PNG/PDF dari Sulalah
+- 5 tema (Bersih, Kayu Jati, Hijau Daun, Langit Subuh, Coklat Kertas)
+- 4 ukuran (IG Story, IG Post, A4 Portrait, A4 Landscape)
+- Layout horizontal klasik dengan **multi-row auto-wrap**
+- Siap pakai, cepat, offline-capable
 
-- **Wizard 4 langkah**: Ukuran → Tema → Pengaturan → Preview & Ekspor
-- **4 Ukuran**: Instagram Story, Instagram Post, A4 Portrait, A4 Landscape
-- **5 Tema Gratis**:
-  1. Bersih (minimalis modern)
-  2. Kayu Jati (hangat pesantren)
-  3. Hijau Daun (natural Islami)
-  4. Langit Subuh (biru kalem)
-  5. Coklat Kertas (kertas kuno)
-- **Layout Klasik Horizontal** dengan auto-adaptive spacing per generasi
-- **Statistik Keluarga**: total anggota, generasi, rentang tahun (toggle)
-- **Watermark**: "🌳 sulalah.my.id" di pojok kanan bawah
-- **Export PNG** (untuk share sosmed)
-- **Export PDF** (untuk cetak)
+### 2. Prompt untuk Gemini AI 🎨 (FITUR UNIK)
+- Generate prompt detail & siap pakai
+- 5 style artistik:
+  - 🕌 **Islami Klasik** — kaligrafi, arabesque, emas-hijau
+  - ✨ **Modern Minimalis** — bersih, indigo, negative space
+  - 📜 **Vintage Manuskrip** — sepia, ornamen floral Victorian
+  - 🌸 **Nusantara Batik** — motif batik, sogan palette
+  - 🌙 **Elegan Malam** — dark mode, emas, starfield
+- User copy prompt → paste ke gemini.google.com → hasil studio-grade
+- **Selling point unik Sulalah** — no family tree app lain yang punya ini!
+
+## Fix Layout Bug dari v11-preview
+
+- ✅ **Generasi urut dengan benar** (Gen I/tertua di ATAS, termuda di BAWAH)
+- ✅ **Font loading fix** — Google Fonts pre-loaded via document.fonts.load()
+- ✅ **Text wrapping** — nama panjang wrap ke 2 baris max
+- ✅ **Multi-row per generation** — saat >N anggota, otomatis wrap ke baris baru
+- ✅ **Adaptive scaling** — kalau pohon terlalu panjang, auto-scale down
+- ✅ **Min card width** — tidak bakal mengecil ekstrim lagi
 
 ## Step Deploy
 
 ### 1. Push ZIP ke GitHub → Vercel auto deploy
 
-Tidak ada migration SQL baru di v11.
+Tidak ada migration SQL baru.
 
 ### 2. Test
 
-1. Buka pohon apapun yang ada anggotanya
-2. Klik tombol **🖼️ Ekspor** di topbar
-3. Ikuti wizard:
-   - Pilih ukuran (misal: IG Story)
-   - Pilih tema (misal: Bersih)
-   - Toggle statistik keluarga
-   - Pilih format PNG
-4. Preview tampil → klik **💾 Ekspor PNG**
-5. File ter-download dengan nama `sulalah-[nama-pohon]-[timestamp].png`
+**Direct Mode:**
+1. Buka pohon apapun → klik **🖼️ Ekspor**
+2. Pilih **💾 Ekspor Langsung**
+3. Wizard 4 step: Ukuran → Tema → Pengaturan → Preview
+4. Ekspor PNG atau PDF
+5. Cek: generasi terurut benar, nama terbaca, layout rapi
 
-### 3. Yang Harus Dicek
+**Gemini Mode:**
+1. Klik **🖼️ Ekspor** → pilih **🎨 Buat Prompt Gemini**
+2. Wizard 3 step: Ukuran → Style → Copy Prompt
+3. Klik **Copy Prompt**
+4. Buka https://gemini.google.com di tab baru
+5. Paste prompt → submit
+6. Hasil harusnya: poster artistic premium dengan gaya yang dipilih
+7. (Kalau kurang pas, minta Gemini revisi: "buat lebih detail", "warna lebih gelap", dll)
 
-- ✅ Wizard step berjalan lancar (1→2→3→4)
-- ✅ Preview muncul di step 4
-- ✅ Semua 5 tema render dengan benar
-- ✅ Semua 4 ukuran render dengan benar
-- ✅ Anggota muncul di generasi yang tepat
-- ✅ Garis penghubung antar generasi ada
-- ✅ Watermark sulalah.my.id tampil di kanan bawah
-- ✅ PNG download berhasil
-- ✅ PDF download berhasil & bisa dibuka
+## File Structure v11
 
-## Rencana ke Depan
-
-**v12 (setelah launch + dapat user):**
-- Layout Radial (pohon center-out)
-- Layout Kitab Nasab (list formal per generasi)
-- 10 tema premium (Kaligrafi Emas, Batik Nusantara, Malam Berbintang, dll)
-- Watermark halus untuk user premium
-- Ukuran A3, A5, Custom
-- Cover page dengan dalil
-
-**File baru di v11:**
 ```
 lib/
-  posterEngine.js     → Canvas renderer utama (747 baris)
-  posterThemes.js     → 5 tema + 4 ukuran
-  posterStats.js      → Kalkulator statistik keluarga
+  posterEngine.js       → Canvas renderer (FIXED layout)
+  posterThemes.js       → 5 tema + 4 ukuran
+  posterStats.js        → Stats calculator
+  geminiPrompt.js       → NEW: Gemini prompt generator (5 style)
 components/
-  PosterStudio.js     → Wizard modal (274 baris)
+  PosterStudio.js       → NEW: Hybrid export wizard (direct + gemini)
 ```
 
-**File lama yang masih ada (belum dihapus, fallback):**
-- `lib/pdfExport.js` — engine lama
-- `components/PdfThemeModal.js` — modal lama
+## Tip Marketing
 
-Kedua file lama masih ada di project tapi tidak dipakai lagi.
-Aman untuk dihapus di v12 setelah yakin v11 stabil.
+Ini fitur yang bisa kamu highlight di landing page:
+
+> **🎨 Tidak puas dengan tema default?**
+> Sulalah punya fitur **Export to Gemini** — dapatkan prompt siap pakai
+> untuk generate poster silsilah dengan AI. **Hasilnya kualitas studio**,
+> gratis pakai Gemini.
+
+Ini bakal jadi differentiator kuat dari app silsilah lain.
