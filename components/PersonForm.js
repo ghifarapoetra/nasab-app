@@ -2,15 +2,19 @@
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '../lib/supabase'
 
-const EMPTY = { name:'', gender:'male', photo_url:'', birth_year:'', birth_month:'', birth_day:'', death_year:'', phone:'', email:'', father_id:'', mother_id:'', notes:'', wafat_notes:'', notify_milad:false, is_self:false, birth_order:'' }
+const EMPTY = { name:'', gender:'male', photo_url:'', birth_year:'', birth_month:'', birth_day:'', death_year:'', phone:'', email:'', address:'', father_id:'', mother_id:'', spouse_id:'', notes:'', wafat_notes:'', notify_milad:false, is_self:false, birth_order:'' }
 const MONTHS = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember']
 
-// Generate random ID 32 karakter — tidak bisa ditebak
 function randomId(len = 32) {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
   let s = ''
   for (let i = 0; i < len; i++) s += chars[Math.floor(Math.random() * chars.length)]
   return s
+}
+
+// Sort by name ascending (case-insensitive, locale aware)
+function sortByName(arr) {
+  return [...arr].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'id', { sensitivity: 'base' }))
 }
 
 export default function PersonForm({ person, persons, onSave, onDelete, onCancel, isFirst, treeId }) {
@@ -19,14 +23,50 @@ export default function PersonForm({ person, persons, onSave, onDelete, onCancel
   const [uploading, setUploading] = useState(false)
   const [err, setErr] = useState('')
   const [photoPreview, setPhotoPreview] = useState(null)
+  const [existingSpouse, setExistingSpouse] = useState(null)
   const fileRef = useRef(null)
 
   useEffect(()=>{
     if (person) {
-      setForm({ ...EMPTY, ...person, birth_year:person.birth_year||'', birth_month:person.birth_month||'', birth_day:person.birth_day||'', death_year:person.death_year||'', father_id:person.father_id||'', mother_id:person.mother_id||'', birth_order:person.birth_order||'' })
+      setForm({
+        ...EMPTY, ...person,
+        birth_year: person.birth_year||'',
+        birth_month: person.birth_month||'',
+        birth_day: person.birth_day||'',
+        death_year: person.death_year||'',
+        father_id: person.father_id||'',
+        mother_id: person.mother_id||'',
+        birth_order: person.birth_order||'',
+        address: person.address||'',
+        spouse_id: '',
+      })
       setPhotoPreview(person.photo_url||null)
-    } else { setForm(EMPTY); setPhotoPreview(null) }
+      // Load existing spouse
+      loadSpouse(person.id)
+    } else {
+      setForm(EMPTY)
+      setPhotoPreview(null)
+      setExistingSpouse(null)
+    }
   }, [person])
+
+  async function loadSpouse(personId) {
+    if (!personId) return
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('marriages')
+      .select('id, person1_id, person2_id, status')
+      .or(`person1_id.eq.${personId},person2_id.eq.${personId}`)
+      .eq('status', 'active')
+      .maybeSingle()
+    if (data) {
+      const spouseId = data.person1_id === personId ? data.person2_id : data.person1_id
+      const sp = persons.find(p => p.id === spouseId)
+      if (sp) setExistingSpouse(sp)
+    } else {
+      setExistingSpouse(null)
+    }
+  }
 
   const set = (k,v) => setForm(f=>({...f,[k]:v}))
 
@@ -36,21 +76,12 @@ export default function PersonForm({ person, persons, onSave, onDelete, onCancel
     setUploading(true); setErr('')
     const supabase = createClient()
     const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
-
-    // PATH RANDOMIZED: photos/{treeId}/{random32chars}-{timestamp}.ext
-    // - Dikelompokkan per tree supaya rapi & mudah cleanup
-    // - Nama file random 32 karakter = tidak bisa ditebak
-    // - Plus timestamp untuk prevent cache collision
     const tid = treeId || 'untreed'
     const filename = `${tid}/${randomId(32)}-${Date.now()}.${ext}`
-
     const { error } = await supabase.storage.from('photos').upload(filename, file, { upsert: false })
     if (error) { setErr('Gagal upload foto: ' + error.message); setUploading(false); return }
-
     const { data:{ publicUrl } } = supabase.storage.from('photos').getPublicUrl(filename)
     set('photo_url', publicUrl); setPhotoPreview(publicUrl); setUploading(false)
-
-    // Audit log (non-blocking)
     try {
       const { data:{ session } } = await supabase.auth.getSession()
       if (session?.user && tid !== 'untreed') {
@@ -68,8 +99,9 @@ export default function PersonForm({ person, persons, onSave, onDelete, onCancel
   async function handleSave() {
     if (!form.name.trim()) { setErr('Nama harus diisi.'); return }
     setErr(''); setLoading(true)
+    const { spouse_id, ...rest } = form
     await onSave({
-      ...form,
+      ...rest,
       birth_year: form.birth_year ? parseInt(form.birth_year) : null,
       birth_month: form.birth_month ? parseInt(form.birth_month) : null,
       birth_day: form.birth_day ? parseInt(form.birth_day) : null,
@@ -77,14 +109,34 @@ export default function PersonForm({ person, persons, onSave, onDelete, onCancel
       birth_order: form.birth_order ? parseInt(form.birth_order) : null,
       father_id: form.father_id || null,
       mother_id: form.mother_id || null,
-      is_self: isFirst ? true : form.is_self
+      address: form.address?.trim() || null,
+      is_self: isFirst ? true : form.is_self,
+      _spouse_id: spouse_id || null,  // Pass to handler for marriage save
     })
     setLoading(false)
   }
 
+  async function unlinkSpouse() {
+    if (!person?.id || !existingSpouse) return
+    if (!confirm(`Lepas hubungan pernikahan dengan ${existingSpouse.name}?`)) return
+    const supabase = createClient()
+    await supabase.from('marriages').delete()
+      .or(`and(person1_id.eq.${person.id},person2_id.eq.${existingSpouse.id}),and(person1_id.eq.${existingSpouse.id},person2_id.eq.${person.id})`)
+    setExistingSpouse(null)
+  }
+
   const ini = n => n.trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase()||'?'
-  const fathers = persons.filter(p=>p.gender==='male'&&p.id!==person?.id)
-  const mothers = persons.filter(p=>p.gender==='female'&&p.id!==person?.id)
+
+  // Sorted dropdowns - alphabetically
+  const fathers = sortByName(persons.filter(p => p.gender === 'male' && p.id !== person?.id))
+  const mothers = sortByName(persons.filter(p => p.gender === 'female' && p.id !== person?.id))
+  // Spouse: opposite gender, excluding self & existing spouse
+  const spouseGender = form.gender === 'male' ? 'female' : 'male'
+  const spouseCandidates = sortByName(persons.filter(p =>
+    p.gender === spouseGender &&
+    p.id !== person?.id &&
+    p.id !== existingSpouse?.id
+  ))
   const isDeceased = !!form.death_year
 
   return (
@@ -150,26 +202,58 @@ export default function PersonForm({ person, persons, onSave, onDelete, onCancel
           <label>No. HP / WhatsApp</label>
           <input value={form.phone} onChange={e=>set('phone',e.target.value)} placeholder="+62 812 xxxx xxxx" />
         </div>
-        <div className="field">
+        <div className="field" style={{ gridColumn:'1/-1' }}>
           <label>Email</label>
           <input type="email" value={form.email} onChange={e=>set('email',e.target.value)} placeholder="nama@email.com" />
         </div>
+        <div className="field" style={{ gridColumn:'1/-1' }}>
+          <label>📍 Alamat</label>
+          <textarea value={form.address} onChange={e=>set('address',e.target.value)} placeholder="mis. Jl. Pesantren No. 12, RT 03/02, Tengaran, Kab. Semarang, Jawa Tengah" style={{ minHeight:60 }} />
+        </div>
+
         {!isFirst && <>
           <div className="field">
-            <label>Ayah</label>
+            <label>Ayah <span style={{ color:'var(--tx3)',fontWeight:400 }}>({fathers.length})</span></label>
             <select value={form.father_id} onChange={e=>set('father_id',e.target.value)}>
               <option value="">— tidak ada / tidak diketahui</option>
               {fathers.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
           <div className="field">
-            <label>Ibu</label>
+            <label>Ibu <span style={{ color:'var(--tx3)',fontWeight:400 }}>({mothers.length})</span></label>
             <select value={form.mother_id} onChange={e=>set('mother_id',e.target.value)}>
               <option value="">— tidak ada / tidak diketahui</option>
               {mothers.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
+
+          {/* Spouse selector */}
+          <div className="field" style={{ gridColumn:'1/-1' }}>
+            <label>💍 Pasangan ({form.gender === 'male' ? 'Istri' : 'Suami'})</label>
+            {existingSpouse ? (
+              <div style={{ display:'flex',alignItems:'center',gap:8,padding:'8px 12px',background:'var(--t2)',border:'1px solid var(--t3)',borderRadius:8 }}>
+                <span style={{ flex:1,fontSize:13,color:'var(--tx)' }}>
+                  💖 <strong>{existingSpouse.name}</strong>
+                  {existingSpouse.birth_year && <span style={{ color:'var(--tx3)',marginLeft:8,fontSize:11 }}>(lahir {existingSpouse.birth_year})</span>}
+                </span>
+                <button type="button" onClick={unlinkSpouse} style={{ background:'transparent',border:'1px solid var(--rose-b)',color:'var(--rose-t)',fontSize:11,padding:'4px 10px',borderRadius:6,cursor:'pointer' }}>
+                  Lepas
+                </button>
+              </div>
+            ) : (
+              <>
+                <select value={form.spouse_id} onChange={e=>set('spouse_id',e.target.value)}>
+                  <option value="">— pilih pasangan untuk menghubungkan</option>
+                  {spouseCandidates.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+                <div style={{ fontSize:10,color:'var(--tx3)',marginTop:4,lineHeight:1.5 }}>
+                  💡 Pilih pasangan agar otomatis ditampilkan sejajar di pohon. Bisa diisi/diubah nanti.
+                </div>
+              </>
+            )}
+          </div>
         </>}
+
         <div className="field" style={{ gridColumn:'1/-1' }}>
           <label>Catatan / Riwayat</label>
           <textarea value={form.notes} onChange={e=>set('notes',e.target.value)} placeholder="mis. Pengasuh Pesantren Al-Falah, lahir di Salatiga..." />

@@ -1,11 +1,11 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { POSTER_SIZES, POSTER_THEMES } from '../lib/posterThemes'
-import { renderPoster, canvasToPNG, canvasToPDF } from '../lib/posterEngine'
+import { captureTreeCanvas, downloadPNG, downloadPDF } from '../lib/canvasScreenshot'
 import { calculateFamilyStats } from '../lib/posterStats'
 import { PROMPT_STYLES, buildGeminiPrompt } from '../lib/geminiPrompt'
 
-export default function PosterStudio({ treeName, treeDesc, persons = [], ownerName, onClose }) {
+export default function PosterStudio({ treeName, treeDesc, persons = [], marriages = [], ownerName, onClose }) {
   const [mode, setMode] = useState(null) // null | 'direct' | 'gemini'
   const [step, setStep] = useState(1)
   const [sizeId, setSizeId] = useState(null)
@@ -21,17 +21,17 @@ export default function PosterStudio({ treeName, treeDesc, persons = [], ownerNa
   const [copied, setCopied] = useState(false)
   const [err, setErr] = useState('')
   const canvasRef = useRef(null)
-  const stats = calculateFamilyStats(persons)
+  const stats = calculateFamilyStats(persons, marriages)
 
   // Generate preview when reaching final step of direct mode
   useEffect(() => {
-    if (mode === 'direct' && step === 4 && sizeId && themeId) generatePreview()
-  }, [mode, step, sizeId, themeId, showStats])
+    if (mode === 'direct' && step === 3 && sizeId) generatePreview()
+  }, [mode, step, sizeId, showStats])
 
   // Generate prompt when reaching final step of gemini mode
   useEffect(() => {
     if (mode === 'gemini' && step === 3 && sizeId && styleId) {
-      const p = buildGeminiPrompt({ persons, treeName, treeDesc, sizeId, styleId, ownerName })
+      const p = buildGeminiPrompt({ persons, marriages, treeName, treeDesc, sizeId, styleId, ownerName })
       setGeneratedPrompt(p)
     }
   }, [mode, step, sizeId, styleId])
@@ -39,9 +39,13 @@ export default function PosterStudio({ treeName, treeDesc, persons = [], ownerNa
   async function generatePreview() {
     setGenerating(true); setErr('')
     try {
-      const canvas = await renderPoster({
-        persons, treeName, treeDesc, sizeId, themeId, ownerName,
-        options: { showStats },
+      // Find tree canvas element in DOM
+      const treeCanvasEl = document.getElementById('ci')
+      if (!treeCanvasEl) {
+        throw new Error('Canvas pohon tidak ditemukan. Pastikan Anda membuka halaman pohon terlebih dahulu.')
+      }
+      const canvas = await captureTreeCanvas(treeCanvasEl, {
+        treeName, treeDesc, ownerName, persons, sizeId,
       })
       canvasRef.current = canvas
       setPreviewUrl(canvas.toDataURL('image/jpeg', 0.7))
@@ -58,8 +62,8 @@ export default function PosterStudio({ treeName, treeDesc, persons = [], ownerNa
     try {
       const filename = `sulalah-${slug(treeName)}-${Date.now()}.${format}`
       setProgress(`Menyimpan ${format.toUpperCase()}...`)
-      if (format === 'png') canvasToPNG(canvasRef.current, filename)
-      else await canvasToPDF(canvasRef.current, filename, sizeId)
+      if (format === 'png') downloadPNG(canvasRef.current, filename)
+      else await downloadPDF(canvasRef.current, filename, sizeId)
       setProgress('Selesai! ✓')
       setTimeout(() => { setExporting(false); setProgress('') }, 1500)
     } catch (e) {
@@ -83,8 +87,7 @@ export default function PosterStudio({ treeName, treeDesc, persons = [], ownerNa
   function canNext() {
     if (mode === 'direct') {
       if (step === 1) return !!sizeId
-      if (step === 2) return !!themeId
-      if (step === 3) return true
+      if (step === 2) return true
     } else if (mode === 'gemini') {
       if (step === 1) return !!sizeId
       if (step === 2) return !!styleId
@@ -92,7 +95,7 @@ export default function PosterStudio({ treeName, treeDesc, persons = [], ownerNa
     return false
   }
 
-  const maxStep = mode === 'direct' ? 4 : 3
+  const maxStep = mode === 'direct' ? 3 : 3
 
   return (
     <div style={{ position:'fixed',inset:0,background:'rgba(0,0,0,.7)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000,padding:16,backdropFilter:'blur(4px)' }}>
@@ -189,43 +192,24 @@ export default function PosterStudio({ treeName, treeDesc, persons = [], ownerNa
             </>
           )}
 
-          {/* STEP 2 (DIRECT): THEME */}
+          {/* STEP 2 (DIRECT): OPTIONS — theme skipped karena pakai screenshot canvas */}
           {mode === 'direct' && step === 2 && (
             <>
-              <h4 style={{ fontSize:15,fontWeight:700,color:'var(--tx)',marginBottom:4 }}>2. Pilih Tema</h4>
-              <p style={{ fontSize:12,color:'var(--tx2)',marginBottom:14 }}>5 tema gratis yang bisa dipakai semua user.</p>
-              <div style={{ display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(190px,1fr))',gap:10 }}>
-                {POSTER_THEMES.map(t => (
-                  <button key={t.id} onClick={()=>setThemeId(t.id)}
-                    style={{ padding:'14px',borderRadius:12,border:`2px solid ${themeId===t.id?'var(--t4)':'var(--bd)'}`,background:themeId===t.id?'var(--t2)':'var(--card)',cursor:'pointer',textAlign:'left' }}>
-                    <div style={{ display:'flex',gap:4,marginBottom:10 }}>
-                      {t.preview.map((c, i) => (
-                        <div key={i} style={{ flex:1,height:22,borderRadius:5,background:c,border:'1px solid var(--bd)' }} />
-                      ))}
-                    </div>
-                    <div style={{ fontSize:13,fontWeight:700,color:themeId===t.id?'var(--t6)':'var(--tx)' }}>{t.name}</div>
-                    <div style={{ fontSize:10,color:'var(--tx3)',marginTop:3,lineHeight:1.5 }}>{t.desc}</div>
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
+              <h4 style={{ fontSize:15,fontWeight:700,color:'var(--tx)',marginBottom:4 }}>2. Pengaturan</h4>
+              <p style={{ fontSize:12,color:'var(--tx2)',marginBottom:14 }}>Poster akan dibuat dari tampilan pohon di layar dengan header & footer elegan.</p>
 
-          {/* STEP 3 (DIRECT): OPTIONS */}
-          {mode === 'direct' && step === 3 && (
-            <>
-              <h4 style={{ fontSize:15,fontWeight:700,color:'var(--tx)',marginBottom:4 }}>3. Pengaturan</h4>
-              <div style={{ display:'grid',gap:10,marginTop:14,marginBottom:16 }}>
+              <div style={{ display:'grid',gap:10,marginBottom:16 }}>
                 <label style={{ display:'flex',alignItems:'center',gap:12,padding:'12px 14px',background:'var(--surf)',borderRadius:10,border:'1px solid var(--bd)',cursor:'pointer' }}>
                   <input type="checkbox" checked={showStats} onChange={e=>setShowStats(e.target.checked)} style={{ width:18,height:18 }} />
                   <div>
-                    <div style={{ fontSize:13,fontWeight:700,color:'var(--tx)' }}>📊 Statistik Keluarga</div>
+                    <div style={{ fontSize:13,fontWeight:700,color:'var(--tx)' }}>📊 Statistik Keluarga di Footer</div>
                     <div style={{ fontSize:11,color:'var(--tx2)',marginTop:2 }}>Total anggota, generasi, rentang tahun</div>
                   </div>
                 </label>
               </div>
+
               <div style={{ fontSize:12,fontWeight:700,color:'var(--tx2)',marginBottom:8 }}>Format Export</div>
-              <div style={{ display:'flex',gap:8 }}>
+              <div style={{ display:'flex',gap:8,marginBottom:14 }}>
                 {[{id:'png',label:'🖼️ PNG',desc:'Share sosmed'},{id:'pdf',label:'📄 PDF',desc:'Cetak printer'}].map(f=>(
                   <button key={f.id} onClick={()=>setFormat(f.id)}
                     style={{ flex:1,padding:'12px',borderRadius:10,border:`2px solid ${format===f.id?'var(--t4)':'var(--bd)'}`,background:format===f.id?'var(--t2)':'var(--card)',cursor:'pointer' }}>
@@ -234,18 +218,22 @@ export default function PosterStudio({ treeName, treeDesc, persons = [], ownerNa
                   </button>
                 ))}
               </div>
+
+              <div style={{ padding:'10px 12px',background:'var(--t2)',border:'1px solid var(--t3)',borderRadius:8,fontSize:11,color:'var(--tx2)',lineHeight:1.6 }}>
+                💡 <strong>Tip:</strong> Atur zoom pohon di canvas sebelum ekspor untuk hasil terbaik. Gunakan tombol zoom di pojok kanan canvas.
+              </div>
             </>
           )}
 
-          {/* STEP 4 (DIRECT): PREVIEW & EXPORT */}
-          {mode === 'direct' && step === 4 && (
+          {/* STEP 3 (DIRECT): PREVIEW & EXPORT */}
+          {mode === 'direct' && step === 3 && (
             <>
-              <h4 style={{ fontSize:15,fontWeight:700,color:'var(--tx)',marginBottom:4 }}>4. Preview & Ekspor</h4>
+              <h4 style={{ fontSize:15,fontWeight:700,color:'var(--tx)',marginBottom:4 }}>3. Preview & Ekspor</h4>
               <div style={{ display:'flex',justifyContent:'center',marginBottom:16,padding:20,background:'var(--surf)',borderRadius:12 }}>
                 {generating ? (
                   <div style={{ padding:'60px 20px',textAlign:'center' }}>
-                    <div style={{ fontSize:36,marginBottom:10 }}>🎨</div>
-                    <div style={{ fontSize:13,color:'var(--tx2)' }}>Menggambar poster...</div>
+                    <div style={{ fontSize:36,marginBottom:10 }}>📸</div>
+                    <div style={{ fontSize:13,color:'var(--tx2)' }}>Memotret pohon & menyusun poster...</div>
                   </div>
                 ) : previewUrl ? (
                   <img src={previewUrl} alt="Preview" style={{ maxWidth:'100%',maxHeight:420,boxShadow:'0 8px 24px rgba(0,0,0,.15)',borderRadius:4 }} />
@@ -349,12 +337,12 @@ export default function PosterStudio({ treeName, treeDesc, persons = [], ownerNa
             <button className="btn btn-ghost" onClick={step===1?()=>setMode(null):()=>setStep(step-1)} disabled={exporting} style={{ fontSize:13 }}>
               {step===1?'← Ganti Mode':'← Kembali'}
             </button>
-            {mode === 'direct' && step < 4 && (
+            {mode === 'direct' && step < 3 && (
               <button className="btn btn-primary" onClick={()=>setStep(step+1)} disabled={!canNext()} style={{ fontSize:13 }}>
                 Lanjut →
               </button>
             )}
-            {mode === 'direct' && step === 4 && (
+            {mode === 'direct' && step === 3 && (
               <button className="btn btn-primary" onClick={handleExport} disabled={generating || exporting || !previewUrl} style={{ fontSize:13 }}>
                 {exporting ? 'Mengekspor...' : `💾 Ekspor ${format.toUpperCase()}`}
               </button>

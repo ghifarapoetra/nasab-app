@@ -15,6 +15,7 @@ export default function TreePage() {
   const { id: treeId } = useParams()
   const [tree, setTree] = useState(null)
   const [persons, setPersons] = useState([])
+  const [marriages, setMarriages] = useState([])
   const [selected, setSelected] = useState(null)
   const [view, setView] = useState('tree')
   const [editPerson, setEditPerson] = useState(null)
@@ -58,14 +59,48 @@ export default function TreePage() {
     }
     const { data: personsData } = await supabase.from('persons').select('*').eq('tree_id', treeId).order('created_at')
     setPersons(personsData || [])
+    // Load marriages (gracefully handle if table not yet migrated)
+    try {
+      const { data: marriagesData } = await supabase.from('marriages').select('*').eq('tree_id', treeId)
+      setMarriages(marriagesData || [])
+    } catch (e) {
+      setMarriages([])
+    }
     setLoading(false)
   }
 
   async function handleSave(formData) {
     const supabase = createClient()
-    const payload = { ...formData, owner_id: user.id, tree_id: treeId }
-    if (editPerson) await supabase.from('persons').update(payload).eq('id', editPerson.id)
-    else await supabase.from('persons').insert(payload)
+    // Extract _spouse_id (special pseudo-field) before save
+    const { _spouse_id, ...payload } = formData
+    payload.owner_id = user.id
+    payload.tree_id = treeId
+
+    let savedPersonId = editPerson?.id
+    if (editPerson) {
+      await supabase.from('persons').update(payload).eq('id', editPerson.id)
+    } else {
+      const { data: inserted } = await supabase.from('persons').insert(payload).select('id').single()
+      savedPersonId = inserted?.id
+    }
+
+    // Save marriage if spouse selected
+    if (_spouse_id && savedPersonId && _spouse_id !== savedPersonId) {
+      // Use ordered ids (smaller first) to satisfy unique_marriage constraint
+      const [p1, p2] = [savedPersonId, _spouse_id].sort()
+      // Check existing
+      const { data: existing } = await supabase.from('marriages')
+        .select('id').eq('person1_id', p1).eq('person2_id', p2).maybeSingle()
+      if (!existing) {
+        await supabase.from('marriages').insert({
+          tree_id: treeId,
+          person1_id: p1,
+          person2_id: p2,
+          status: 'active',
+        })
+      }
+    }
+
     await loadData(user.id)
     setView('tree'); setEditPerson(null)
   }
@@ -139,7 +174,7 @@ export default function TreePage() {
 
       {view==='tree' && persons.length>0 && !showMembers && (
         <>
-          <FamilyTree persons={persons} selected={selected} onSelect={setSelected} theme={theme} treeName={tree?.name} />
+          <FamilyTree persons={persons} marriages={marriages} selected={selected} onSelect={setSelected} theme={theme} treeName={tree?.name} />
           {selectedPerson && (
             <DetailPanel person={selectedPerson} persons={persons}
               onEdit={canEdit ? p=>{ setEditPerson(p);setView('form') } : null}
@@ -165,6 +200,7 @@ export default function TreePage() {
           treeName={tree?.name}
           treeDesc={tree?.description}
           persons={persons}
+          marriages={marriages}
           ownerName={tree?.owner_name || profile?.full_name}
           onClose={()=>setShowPdfModal(false)}
         />

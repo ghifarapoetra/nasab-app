@@ -6,11 +6,10 @@ import { calculateGenerationLevels } from '../lib/generationLevel'
 const NW=172, NH=70, HG=28, VG=90, PAD=36
 const ini = n => n.trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase()||'?'
 
-function computeLayout(persons) {
+function computeLayout(persons, marriages = []) {
   if (!persons.length) return { positions:{}, gens:[], svgW:300, svgH:200 }
   const map={}; persons.forEach(p=>map[p.id]=p)
-  // Use smart calculator (handles pasangan/partner)
-  const cache = calculateGenerationLevels(persons)
+  const cache = calculateGenerationLevels(persons, marriages)
   const byGen={}
   persons.forEach(p=>{ const g=cache[p.id]||0; (byGen[g]=byGen[g]||[]).push(p.id) })
   const gens=Object.keys(byGen).map(Number).sort((a,b)=>a-b)
@@ -18,16 +17,33 @@ function computeLayout(persons) {
   const svgW=Math.max(maxN*(NW+HG)-HG+PAD*2, NW+PAD*2)
   const positions={}
 
+  // Build couple map combining BOTH child-derived AND marriages table
+  const allCoupleMap = {}
+  // From children
+  persons.forEach(p=>{
+    if(p.father_id && p.mother_id) {
+      allCoupleMap[p.father_id]=p.mother_id
+      allCoupleMap[p.mother_id]=p.father_id
+    }
+  })
+  // From marriages
+  marriages.forEach(m => {
+    if (m.status === 'active') {
+      allCoupleMap[m.person1_id] = m.person2_id
+      allCoupleMap[m.person2_id] = m.person1_id
+    }
+  })
+
   gens.forEach(g=>{
     const ids=[...byGen[g]]
-    // Build partner map for this generation
+    // Filter coupleMap untuk generasi ini saja
     const coupleMap={}
-    persons.forEach(p=>{
-      if(p.father_id && p.mother_id && (cache[p.father_id]||0)===g && (cache[p.mother_id]||0)===g) {
-        coupleMap[p.father_id]=p.mother_id
-        coupleMap[p.mother_id]=p.father_id
+    Object.entries(allCoupleMap).forEach(([a, b]) => {
+      if ((cache[a]||0) === g && (cache[b]||0) === g) {
+        coupleMap[a] = b
       }
     })
+
     const pcx = id => {
       const p=map[id]; if(!p) return -1
       const xs=[p.father_id,p.mother_id].filter(Boolean).map(x=>positions[x]?.cx??-1).filter(x=>x>=0)
@@ -62,37 +78,21 @@ function computeLayout(persons) {
   return { positions, gens, svgW, svgH:Math.max(...gens)*(NH+VG)+NH+PAD*2 }
 }
 
-// Build L-shape path with rounded corner (slightly curved at the corner)
-function lShapePath(x1, y1, x2, y2, midY, r=8) {
-  // From (x1,y1) straight down to midY, then horizontal to x2, then straight down to (x2,y2)
-  // with rounded corners at (x1, midY) and (x2, midY)
-  if (x1 === x2) {
-    return `M${x1},${y1} L${x2},${y2}`
-  }
-  const goRight = x2 > x1
-  const rr = Math.min(r, Math.abs(x2-x1)/2, Math.abs(midY-y1), Math.abs(y2-midY))
-  const cx1 = goRight ? x1 + rr : x1 - rr
-  const cx2 = goRight ? x2 - rr : x2 + rr
-  return `M${x1},${y1} L${x1},${midY-rr} Q${x1},${midY} ${cx1},${midY} L${cx2},${midY} Q${x2},${midY} ${x2},${midY+rr} L${x2},${y2}`
-}
-
-export default function FamilyTree({ persons, selected, onSelect, theme, treeName }) {
+export default function FamilyTree({ persons, selected, onSelect, theme, treeName, marriages = [] }) {
   const containerRef=useRef(null)
   const [zoom, setZoom] = useState(1)
-  const { positions, gens, svgW, svgH } = computeLayout(persons)
+  const { positions, gens, svgW, svgH } = computeLayout(persons, marriages)
   const mah = selected ? getMahram(selected, persons) : null
 
-  // Line colors based on theme
-  const lc = theme==='dark' ? '#475569' : '#94a3b8'
-  const lm = theme==='dark' ? '#d97706' : '#f59e0b'
-  const ls = theme==='dark' ? '#64748b' : '#94a3b8'
+  // Line colors based on theme — original colors
+  const lc = theme==='dark' ? '#1a4a44' : '#a7f3e8'
+  const lm = theme==='dark' ? '#92400e' : '#f59e0b'
+  const ls = theme==='dark' ? '#235450' : '#5eead4'
 
-  // Zoom controls
   const zoomIn = () => setZoom(z => Math.min(2, +(z + 0.15).toFixed(2)))
   const zoomOut = () => setZoom(z => Math.max(0.4, +(z - 0.15).toFixed(2)))
   const zoomFit = () => setZoom(1)
 
-  // Wheel zoom (Ctrl + wheel)
   useEffect(() => {
     const cw = document.getElementById('cw')
     if (!cw) return
@@ -130,55 +130,41 @@ export default function FamilyTree({ persons, selected, onSelect, theme, treeNam
     })
   })
 
-  // Build SVG lines - L-shape with rounded corners
-  let lines=''
-  const couples=new Set()
+  // Build SVG lines — ORIGINAL CURVE STYLE (restored)
+  let lines=`<defs><marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>`
 
-  // Couple connector (horizontal double line between partners)
+  // Couple connector lines (from children-shared OR marriages)
+  const couples=new Set()
+  // From shared children
   persons.forEach(p=>{
     if(!p.father_id||!p.mother_id) return
     const key=[p.father_id,p.mother_id].sort().join('|')
     if(couples.has(key)) return; couples.add(key)
     const fp=positions[p.father_id], mp=positions[p.mother_id]
     if(!fp||!mp) return
-    // Only connect if on same generation
-    if(fp.y !== mp.y) return
     const lx1=Math.min(fp.x+NW,mp.x+NW), lx2=Math.max(fp.x,mp.x)
-    if(lx2>lx1) {
-      lines+=`<line x1="${lx1}" y1="${fp.y+NH/2}" x2="${lx2}" y2="${fp.y+NH/2}" stroke="${ls}" stroke-width="1.5" stroke-dasharray="4 4" opacity="0.7"/>`
-    }
+    if(lx2>lx1) lines+=`<line x1="${lx1}" y1="${fp.y+NH/2}" x2="${lx2}" y2="${fp.y+NH/2}" stroke="${ls}" stroke-width="1.5" stroke-dasharray="5 3"/>`
+  })
+  // From marriages table
+  marriages.forEach(m => {
+    if (m.status !== 'active') return
+    const key = [m.person1_id, m.person2_id].sort().join('|')
+    if (couples.has(key)) return; couples.add(key)
+    const fp = positions[m.person1_id], mp = positions[m.person2_id]
+    if (!fp || !mp) return
+    const lx1 = Math.min(fp.x + NW, mp.x + NW), lx2 = Math.max(fp.x, mp.x)
+    if (lx2 > lx1) lines += `<line x1="${lx1}" y1="${fp.y+NH/2}" x2="${lx2}" y2="${fp.y+NH/2}" stroke="${ls}" stroke-width="1.5" stroke-dasharray="5 3"/>`
   })
 
-  // Parent→child lines with L-shape and rounded corners
+  // Parent→child lines — ORIGINAL bezier curve style
   persons.forEach(p=>{
-    const parents = [p.father_id, p.mother_id].filter(Boolean).filter(id => positions[id])
-    if (parents.length === 0 || !positions[p.id]) return
-
-    // If both parents exist, draw single line from midpoint of parent couple
-    if (parents.length === 2 && positions[parents[0]].y === positions[parents[1]].y) {
-      const p1 = positions[parents[0]], p2 = positions[parents[1]]
-      const parentMidX = (p1.cx + p2.cx) / 2
-      const parentBottomY = p1.y + NH
-      const childTopY = positions[p.id].y
-      const midY = (parentBottomY + childTopY) / 2
-      const hi = mah?.all.has(parents[0]) || mah?.all.has(parents[1]) || mah?.all.has(p.id)
-      const color = hi ? lm : lc
-      const sw = hi ? 2 : 1.3
-      lines += `<path d="${lShapePath(parentMidX, parentBottomY, positions[p.id].cx, childTopY, midY, 8)}" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linecap="round"/>`
-    } else {
-      // Single parent or parents in different generations
-      parents.forEach(parId => {
-        const pp = positions[parId]
-        const childPos = positions[p.id]
-        const py = pp.y + NH
-        const cy = childPos.y
-        const midY = (py + cy) / 2
-        const hi = mah?.all.has(parId) || mah?.all.has(p.id)
-        const color = hi ? lm : lc
-        const sw = hi ? 2 : 1.3
-        lines += `<path d="${lShapePath(pp.cx, py, childPos.cx, cy, midY, 8)}" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linecap="round"/>`
-      })
-    }
+    [p.father_id,p.mother_id].filter(Boolean).forEach(par=>{
+      if(!positions[par]||!positions[p.id]) return
+      const px=positions[par].cx, py=positions[par].y+NH
+      const cx=positions[p.id].cx, cy=positions[p.id].y, mid=(py+cy)/2
+      const hi=mah?.all.has(par)||mah?.all.has(p.id)
+      lines+=`<path d="M${px},${py} C${px},${mid} ${cx},${mid} ${cx},${cy}" fill="none" stroke="${hi?lm:lc}" stroke-width="${hi?2.5:1.5}"/>`
+    })
   })
 
   const self=persons.find(p=>p.is_self)||{name:treeName||'Keluarga'}
@@ -190,9 +176,9 @@ export default function FamilyTree({ persons, selected, onSelect, theme, treeNam
       <div id="cw" style={{ overflow:'auto',height:460,border:'1px solid var(--bd)',borderRadius:12,background:'var(--surf)',position:'relative' }}>
         {/* Zoom controls */}
         <div style={{ position:'absolute',top:10,right:10,zIndex:10,display:'flex',flexDirection:'column',gap:4,background:'var(--card)',border:'1px solid var(--bd)',borderRadius:8,padding:4,boxShadow:'0 2px 8px rgba(0,0,0,.08)' }}>
-          <button onClick={zoomIn} title="Zoom in (Ctrl+Scroll up)" style={{ width:28,height:28,border:'none',background:'transparent',cursor:'pointer',fontSize:16,fontWeight:700,color:'var(--tx)',borderRadius:6 }}>+</button>
+          <button onClick={zoomIn} title="Zoom in" style={{ width:28,height:28,border:'none',background:'transparent',cursor:'pointer',fontSize:16,fontWeight:700,color:'var(--tx)',borderRadius:6 }}>+</button>
           <button onClick={zoomFit} title="Reset zoom" style={{ width:28,height:24,border:'none',background:'transparent',cursor:'pointer',fontSize:9,color:'var(--tx2)',borderRadius:6,fontWeight:600 }}>{Math.round(zoom*100)}%</button>
-          <button onClick={zoomOut} title="Zoom out (Ctrl+Scroll down)" style={{ width:28,height:28,border:'none',background:'transparent',cursor:'pointer',fontSize:18,fontWeight:700,color:'var(--tx)',borderRadius:6 }}>−</button>
+          <button onClick={zoomOut} title="Zoom out" style={{ width:28,height:28,border:'none',background:'transparent',cursor:'pointer',fontSize:18,fontWeight:700,color:'var(--tx)',borderRadius:6 }}>−</button>
         </div>
 
         <div id="ci" ref={containerRef} style={{
