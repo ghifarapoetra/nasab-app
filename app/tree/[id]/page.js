@@ -16,7 +16,6 @@ export default function TreePage() {
   const [tree, setTree] = useState(null)
   const [persons, setPersons] = useState([])
   const [marriages, setMarriages] = useState([])
-  const [radhaRelations, setRadhaRelations] = useState([])
   const [selected, setSelected] = useState(null)
   const [view, setView] = useState('tree')
   const [editPerson, setEditPerson] = useState(null)
@@ -60,19 +59,12 @@ export default function TreePage() {
     }
     const { data: personsData } = await supabase.from('persons').select('*').eq('tree_id', treeId).order('created_at')
     setPersons(personsData || [])
-    // Load marriages
+    // Load marriages (gracefully handle if table not yet migrated)
     try {
       const { data: marriagesData } = await supabase.from('marriages').select('*').eq('tree_id', treeId)
       setMarriages(marriagesData || [])
     } catch (e) {
       setMarriages([])
-    }
-    // Load radha relations
-    try {
-      const { data: radhaData } = await supabase.from('radha_relations').select('*').eq('tree_id', treeId)
-      setRadhaRelations(radhaData || [])
-    } catch (e) {
-      setRadhaRelations([])
     }
     setLoading(false)
   }
@@ -86,10 +78,12 @@ export default function TreePage() {
 
     let savedPersonId = editPerson?.id
     if (editPerson) {
-      await supabase.from('persons').update(payload).eq('id', editPerson.id)
+      const { error: updateErr } = await supabase.from('persons').update(payload).eq('id', editPerson.id)
+      if (updateErr) console.error('Update error:', updateErr)
     } else {
-      const { data: inserted } = await supabase.from('persons').insert(payload).select('id').single()
-      savedPersonId = inserted?.id
+      const { data: inserted, error: insertErr } = await supabase.from('persons').insert(payload).select('id').single()
+      if (insertErr) console.error('Insert error:', insertErr)
+      if (inserted?.id) savedPersonId = inserted.id
     }
 
     // Save marriage if spouse selected
@@ -182,7 +176,7 @@ export default function TreePage() {
 
       {view==='tree' && persons.length>0 && !showMembers && (
         <>
-          <FamilyTree persons={persons} marriages={marriages} radhaRelations={radhaRelations} selected={selected} onSelect={setSelected} theme={theme} treeName={tree?.name} />
+          <FamilyTree persons={persons} marriages={marriages} selected={selected} onSelect={setSelected} theme={theme} treeName={tree?.name} />
           {selectedPerson && (
             <DetailPanel person={selectedPerson} persons={persons}
               onEdit={canEdit ? p=>{ setEditPerson(p);setView('form') } : null}
@@ -198,7 +192,6 @@ export default function TreePage() {
       {view==='form' && canEdit && (
         <div className="card">
           <PersonForm person={editPerson} persons={persons} isFirst={isFirst} treeId={treeId}
-            radhaRelations={radhaRelations}
             onSave={handleSave} onDelete={handleDelete}
             onCancel={()=>{ setView('tree');setEditPerson(null) }} />
         </div>
