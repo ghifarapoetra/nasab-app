@@ -25,6 +25,9 @@ export default function PersonForm({ person, persons, onSave, onDelete, onCancel
   const [photoPreview, setPhotoPreview] = useState(null)
   const [existingSpouse, setExistingSpouse] = useState(null)
   const [existingRadha, setExistingRadha] = useState([]) // saudara sepersusuan yang sudah ada
+  const [newRadhaSiblingId, setNewRadhaSiblingId] = useState('')
+  const [newRadhaMilkMother, setNewRadhaMilkMother] = useState('')
+  const [addingRadha, setAddingRadha] = useState(false)
   const fileRef = useRef(null)
 
   useEffect(()=>{
@@ -157,9 +160,6 @@ export default function PersonForm({ person, persons, onSave, onDelete, onCancel
   ))
   const existingRadhaIds = new Set(existingRadha.map(r => r.siblingId))
   const radhaCandidates = sortByName(persons.filter(p => p.id !== person?.id && !existingRadhaIds.has(p.id)))
-  const [newRadhaSiblingId, setNewRadhaSiblingId] = useState('')
-  const [newRadhaMilkMother, setNewRadhaMilkMother] = useState('')
-  const [addingRadha, setAddingRadha] = useState(false)
 
   async function handleAddRadha() {
     if (!newRadhaSiblingId || !person?.id) return
