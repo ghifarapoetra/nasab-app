@@ -5,6 +5,8 @@
   --t2:#ccfbf1; --t3:#5eead4; --t4:#14b8a6; --t5:#0d9488; --t6:#0f766e;
   --rose-bg:#fff1f2; --rose-b:#fda4af; --rose-t:#e11d48;
   --amber-bg:#fffbeb; --amber-b:#fcd34d; --amber-t:#d97706;
+  --purple-bg:#faf5ff; --purple-b:#d8b4fe; --purple-t:#7c3aed;
+  --blue-bg:#eff6ff; --blue-b:#93c5fd; --blue-t:#2563eb;
   --bg:#f8fffe; --surf:#f0fdfa; --card:#ffffff;
   --tx:#0f2520; --tx2:#4b6b66; --tx3:#94b8b3;
   --bd:#d1faf4; --bd2:#5eead4;
@@ -18,6 +20,8 @@
   --t2:#0d3330; --t3:#0f766e; --t4:#14b8a6; --t5:#2dd4bf; --t6:#5eead4;
   --rose-bg:#2d0a14; --rose-b:#9f1239; --rose-t:#fda4af;
   --amber-bg:#2d1a00; --amber-b:#92400e; --amber-t:#fcd34d;
+  --purple-bg:#1e0a3c; --purple-b:#6d28d9; --purple-t:#c4b5fd;
+  --blue-bg:#0a1e3c; --blue-b:#1d4ed8; --blue-t:#93c5fd;
   --bg:#0a1f1d; --surf:#0d2926; --card:#0f2f2c;
   --tx:#e0faf7; --tx2:#7eb8b0; --tx3:#3a7a72;
   --bd:#1a3e3a; --bd2:#235450;
@@ -54,6 +58,8 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; backg
 .pnode.female { background:var(--rose-bg);border-left-color:var(--rose-t) }
 .pnode.selected { background:var(--t5);border-color:var(--t5);border-left-color:var(--t3);box-shadow:0 0 0 3px rgba(20,184,166,.25) }
 .pnode.mahram:not(.selected) { background:var(--amber-bg);border-left-color:var(--amber-t);border-color:var(--amber-b) }
+.pnode.mushaharah:not(.selected) { background:var(--purple-bg);border-left-color:var(--purple-t);border-color:var(--purple-b) }
+.pnode.radha:not(.selected) { background:var(--blue-bg);border-left-color:var(--blue-t);border-color:var(--blue-b) }
 .pnode.deceased { opacity:.5 }
 .pnode.selected .node-name,.pnode.selected .node-year,.pnode.selected .node-badge { color:#fff !important }
 
@@ -67,6 +73,8 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; backg
 .node-year { font-size:10px;color:var(--tx2);margin-top:1px }
 .node-badge { font-size:9px;font-weight:700;margin-top:2px;letter-spacing:.3px }
 .badge-mah { color:var(--amber-t) }
+.badge-mus { color:var(--purple-t) }
+.badge-rad { color:var(--blue-t) }
 .badge-you { color:var(--t4) }
 .badge-sel { color:rgba(255,255,255,.85) }
 .gen-label { position:absolute;left:6px;font-size:9px;color:var(--tx3);background:var(--surf);padding:2px 6px;border-radius:4px;pointer-events:none;font-weight:700;letter-spacing:.8px;border:1px solid var(--bd) }
@@ -85,6 +93,8 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; backg
   .pnode.male { background:#f0fdfa !important;border-left-color:#14b8a6 !important }
   .pnode.female { background:#fff1f2 !important;border-left-color:#e11d48 !important }
   .pnode.mahram { background:#fffbeb !important;border-left-color:#d97706 !important }
+  .pnode.mushaharah { background:#faf5ff !important;border-left-color:#7c3aed !important }
+  .pnode.radha { background:#eff6ff !important;border-left-color:#2563eb !important }
   .node-name,.node-year { color:#000 !important }
   .print-title { display:block !important;text-align:center;font-size:20px;font-weight:700;color:#0d9488;margin-bottom:8px }
   .print-sub { display:block !important;text-align:center;font-size:12px;color:#666;margin-bottom:16px }

@@ -17,13 +17,14 @@ function sortByName(arr) {
   return [...arr].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'id', { sensitivity: 'base' }))
 }
 
-export default function PersonForm({ person, persons, onSave, onDelete, onCancel, isFirst, treeId }) {
+export default function PersonForm({ person, persons, onSave, onDelete, onCancel, isFirst, treeId, radhaRelations = [] }) {
   const [form, setForm] = useState(EMPTY)
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [err, setErr] = useState('')
   const [photoPreview, setPhotoPreview] = useState(null)
   const [existingSpouse, setExistingSpouse] = useState(null)
+  const [existingRadha, setExistingRadha] = useState([]) // saudara sepersusuan yang sudah ada
   const fileRef = useRef(null)
 
   useEffect(()=>{
@@ -47,8 +48,18 @@ export default function PersonForm({ person, persons, onSave, onDelete, onCancel
       setForm(EMPTY)
       setPhotoPreview(null)
       setExistingSpouse(null)
+      setExistingRadha([])
     }
   }, [person])
+
+  // Sync existingRadha dari props radhaRelations
+  useEffect(() => {
+    if (!person?.id) return
+    const related = radhaRelations
+      .filter(r => r.person1_id === person.id || r.person2_id === person.id)
+      .map(r => ({ relationId: r.id, siblingId: r.person1_id === person.id ? r.person2_id : r.person1_id, milkMother: r.milk_mother || '' }))
+    setExistingRadha(related)
+  }, [person, radhaRelations])
 
   async function loadSpouse(personId) {
     if (!personId) return
@@ -125,6 +136,13 @@ export default function PersonForm({ person, persons, onSave, onDelete, onCancel
     setExistingSpouse(null)
   }
 
+  async function unlinkRadha(relationId, siblingName) {
+    if (!confirm(`Hapus hubungan sepersusuan dengan ${siblingName}?`)) return
+    const supabase = createClient()
+    await supabase.from('radha_relations').delete().eq('id', relationId)
+    setExistingRadha(prev => prev.filter(r => r.relationId !== relationId))
+  }
+
   const ini = n => n.trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase()||'?'
 
   // Sorted dropdowns - alphabetically
@@ -137,6 +155,33 @@ export default function PersonForm({ person, persons, onSave, onDelete, onCancel
     p.id !== person?.id &&
     p.id !== existingSpouse?.id
   ))
+  const existingRadhaIds = new Set(existingRadha.map(r => r.siblingId))
+  const radhaCandidates = sortByName(persons.filter(p => p.id !== person?.id && !existingRadhaIds.has(p.id)))
+  const [newRadhaSiblingId, setNewRadhaSiblingId] = useState('')
+  const [newRadhaMilkMother, setNewRadhaMilkMother] = useState('')
+  const [addingRadha, setAddingRadha] = useState(false)
+
+  async function handleAddRadha() {
+    if (!newRadhaSiblingId || !person?.id) return
+    setAddingRadha(true)
+    const supabase = createClient()
+    const [p1, p2] = [person.id, newRadhaSiblingId].sort()
+    const { data: existing } = await supabase.from('radha_relations').select('id').eq('person1_id', p1).eq('person2_id', p2).maybeSingle()
+    if (!existing) {
+      const { data: inserted } = await supabase.from('radha_relations').insert({
+        tree_id: treeId,
+        person1_id: p1,
+        person2_id: p2,
+        milk_mother: newRadhaMilkMother.trim() || null,
+      }).select('id').single()
+      if (inserted) {
+        const sibling = persons.find(p => p.id === newRadhaSiblingId)
+        setExistingRadha(prev => [...prev, { relationId: inserted.id, siblingId: newRadhaSiblingId, milkMother: newRadhaMilkMother.trim() }])
+      }
+    }
+    setNewRadhaSiblingId(''); setNewRadhaMilkMother(''); setAddingRadha(false)
+  }
+
   const isDeceased = !!form.death_year
 
   return (
@@ -253,6 +298,44 @@ export default function PersonForm({ person, persons, onSave, onDelete, onCancel
             )}
           </div>
         </>}
+
+        {/* Radha'ah — Saudara Sepersusuan */}
+          {!isFirst && (
+            <div className="field" style={{ gridColumn:'1/-1' }}>
+              <label>🤱 Saudara Sepersusuan <span style={{ color:'var(--tx3)',fontWeight:400 }}>(radha'ah)</span></label>
+              {existingRadha.length > 0 && (
+                <div style={{ display:'flex',flexDirection:'column',gap:6,marginBottom:8 }}>
+                  {existingRadha.map(r => {
+                    const sib = persons.find(p => p.id === r.siblingId)
+                    return (
+                      <div key={r.relationId} style={{ display:'flex',alignItems:'center',gap:8,padding:'7px 12px',background:'var(--blue-bg)',border:'1px solid var(--blue-b)',borderRadius:8 }}>
+                        <span style={{ flex:1,fontSize:13,color:'var(--tx)' }}>
+                          💙 <strong>{sib?.name || '—'}</strong>
+                          {r.milkMother && <span style={{ color:'var(--tx3)',marginLeft:8,fontSize:11 }}>ibu susu: {r.milkMother}</span>}
+                        </span>
+                        <button type="button" onClick={()=>unlinkRadha(r.relationId, sib?.name||'?')} style={{ background:'transparent',border:'1px solid var(--rose-b)',color:'var(--rose-t)',fontSize:11,padding:'4px 10px',borderRadius:6,cursor:'pointer' }}>Hapus</button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+              <div style={{ display:'flex',gap:6,flexWrap:'wrap',alignItems:'flex-end' }}>
+                <div style={{ flex:2,minWidth:140 }}>
+                  <select value={newRadhaSiblingId} onChange={e=>setNewRadhaSiblingId(e.target.value)} style={{ width:'100%' }}>
+                    <option value="">— pilih saudara sepersusuan</option>
+                    {radhaCandidates.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                </div>
+                <div style={{ flex:1,minWidth:110 }}>
+                  <input value={newRadhaMilkMother} onChange={e=>setNewRadhaMilkMother(e.target.value)} placeholder="Nama ibu susu (opt.)" style={{ width:'100%' }} />
+                </div>
+                <button type="button" onClick={handleAddRadha} disabled={!newRadhaSiblingId||addingRadha} className="btn btn-ghost" style={{ fontSize:12,padding:'7px 14px',whiteSpace:'nowrap' }}>
+                  {addingRadha?'Menambah...':'+ Tambah'}
+                </button>
+              </div>
+              <div style={{ fontSize:10,color:'var(--tx3)',marginTop:4,lineHeight:1.5 }}>💡 Hubungan sepersusuan otomatis jadi mahram (biru) di pohon. Bisa ditambah lebih dari satu.</div>
+            </div>
+          )}
 
         <div className="field" style={{ gridColumn:'1/-1' }}>
           <label>Catatan / Riwayat</label>

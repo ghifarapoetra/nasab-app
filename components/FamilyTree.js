@@ -78,16 +78,18 @@ function computeLayout(persons, marriages = []) {
   return { positions, gens, svgW, svgH:Math.max(...gens)*(NH+VG)+NH+PAD*2 }
 }
 
-export default function FamilyTree({ persons, selected, onSelect, theme, treeName, marriages = [] }) {
+export default function FamilyTree({ persons, selected, onSelect, theme, treeName, marriages = [], radhaRelations = [] }) {
   const containerRef=useRef(null)
   const [zoom, setZoom] = useState(1)
   const { positions, gens, svgW, svgH } = computeLayout(persons, marriages)
-  const mah = selected ? getMahram(selected, persons) : null
+  const mah = selected ? getMahram(selected, persons, marriages, radhaRelations) : null
 
-  // Line colors based on theme — original colors
-  const lc = theme==='dark' ? '#1a4a44' : '#a7f3e8'
-  const lm = theme==='dark' ? '#92400e' : '#f59e0b'
-  const ls = theme==='dark' ? '#235450' : '#5eead4'
+  // Line colors based on theme
+  const lc = theme==='dark' ? '#1a4a44' : '#a7f3e8'   // nasab normal
+  const lm = theme==='dark' ? '#92400e' : '#f59e0b'   // mahram nasab (amber)
+  const lmus = theme==='dark' ? '#6d28d9' : '#a855f7'  // mushaharah (ungu)
+  const lrad = theme==='dark' ? '#1d4ed8' : '#60a5fa'  // radha (biru)
+  const ls = theme==='dark' ? '#235450' : '#5eead4'   // garis pasangan
 
   const zoomIn = () => setZoom(z => Math.min(2, +(z + 0.15).toFixed(2)))
   const zoomOut = () => setZoom(z => Math.max(0.4, +(z - 0.15).toFixed(2)))
@@ -128,7 +130,7 @@ export default function FamilyTree({ persons, selected, onSelect, theme, treeNam
       d.onclick=()=>onSelect(selected===p.id?null:p.id)
       ci.appendChild(d)
     })
-  }, [persons, marriages, selected, positions, gens, mah, onSelect])
+  })
 
   // Build SVG lines — ORIGINAL CURVE STYLE (restored)
   let lines=`<defs><marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>`
@@ -162,8 +164,12 @@ export default function FamilyTree({ persons, selected, onSelect, theme, treeNam
       if(!positions[par]||!positions[p.id]) return
       const px=positions[par].cx, py=positions[par].y+NH
       const cx=positions[p.id].cx, cy=positions[p.id].y, mid=(py+cy)/2
-      const hi=mah?.all.has(par)||mah?.all.has(p.id)
-      lines+=`<path d="M${px},${py} C${px},${mid} ${cx},${mid} ${cx},${cy}" fill="none" stroke="${hi?lm:lc}" stroke-width="${hi?2.5:1.5}"/>`
+      const hiNasab=(mah?.nasab.has(par)||mah?.nasab.has(p.id))
+      const hiMus=(mah?.mushaharah.has(par)||mah?.mushaharah.has(p.id))
+      const hiRad=(mah?.radha.has(par)||mah?.radha.has(p.id))
+      const lineColor=hiNasab?lm:hiMus?lmus:hiRad?lrad:lc
+      const lineW=hiNasab||hiMus||hiRad?2.5:1.5
+      lines+=`<path d="M${px},${py} C${px},${mid} ${cx},${mid} ${cx},${cy}" fill="none" stroke="${lineColor}" stroke-width="${lineW}"/>`
     })
   })
 
@@ -192,7 +198,7 @@ export default function FamilyTree({ persons, selected, onSelect, theme, treeNam
         </div>
       </div>
       <div style={{ marginTop:8,display:'flex',gap:12,flexWrap:'wrap',fontSize:10,color:'var(--tx3)',alignItems:'center' }}>
-        {[['var(--t4)','Laki-laki'],['var(--rose-t)','Perempuan'],['var(--amber-t)','Mahram']].map(([c,l])=>(
+        {[['var(--t4)','Laki-laki'],['var(--rose-t)','Perempuan'],['var(--amber-t)','Mahram Nasab'],['var(--purple-t)','Mushaharah'],['var(--blue-t)',"Radha'ah"]].map(([c,l])=>(
           <span key={l} style={{ display:'flex',alignItems:'center',gap:4 }}>
             <span style={{ width:8,height:8,borderRadius:'50%',background:c,display:'inline-block' }}></span>{l}
           </span>
