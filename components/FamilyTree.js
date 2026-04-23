@@ -119,13 +119,16 @@ export default function FamilyTree({ persons, selected, onSelect, theme, treeNam
     })
     persons.forEach(p=>{
       const pos=positions[p.id]; if(!pos) return
-      const isSel=selected===p.id, isMah=mah?.all.has(p.id)
+      const isSel=selected===p.id
+      const isNasab=!isSel&&(mah?.nasab.has(p.id)||false)
+      const isMus=!isSel&&!isNasab&&(mah?.mushaharah.has(p.id)||false)
+      const isRad=!isSel&&!isNasab&&!isMus&&(mah?.radha.has(p.id)||false)
       const d=document.createElement('div')
-      d.className=`pnode ${p.gender}${isSel?' selected':''}${isMah&&!isSel?' mahram':''}${p.death_year?' deceased':''}`
+      d.className=`pnode ${p.gender}${isSel?' selected':''}${isNasab?' mahram':''}${isMus?' mushaharah':''}${isRad?' radha':''}${p.death_year?' deceased':''}`
       d.style.left=pos.x+'px'; d.style.top=pos.y+'px'
       const avCls=isSel?'node-avatar avatar-sel':`node-avatar avatar-${p.gender==='male'?'m':'f'}`
       const yr=p.birth_year?(p.death_year?`${p.birth_year}–${p.death_year}`:`b.${p.birth_year}`):''
-      const badge=p.is_self?`<div class="node-badge badge-you">● Anda</div>`:isMah&&!isSel?`<div class="node-badge badge-mah">✦ mahram</div>`:isSel?`<div class="node-badge badge-sel">● dipilih</div>`:''
+      const badge=p.is_self?`<div class="node-badge badge-you">● Anda</div>`:isSel?`<div class="node-badge badge-sel">● dipilih</div>`:isNasab?`<div class="node-badge badge-mah">✦ nasab</div>`:isMus?`<div class="node-badge badge-mus">✦ mushaharah</div>`:isRad?`<div class="node-badge badge-rad">✦ radha'ah</div>`:''
       d.innerHTML=`<div class="${avCls}">${p.photo_url?`<img src="${p.photo_url}" alt="${p.name}" onerror="this.remove()">`:''}<span>${ini(p.name)}</span></div><div class="node-info"><div class="node-name">${p.name}</div>${yr?`<div class="node-year">${yr}</div>`:''}${badge}</div>`
       d.onclick=()=>onSelect(selected===p.id?null:p.id)
       ci.appendChild(d)
