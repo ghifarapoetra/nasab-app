@@ -36,16 +36,18 @@ export async function POST(req) {
       process.env.NEXT_PUBLIC_SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY
     )
-    await adminClient.from('payment_orders').insert({
-      order_id: orderId,
-      user_id: userId,
-      email,
-      amount: PREMIUM_PRICE,
-      status: 'pending',
-      gateway: 'pakasir',
-    }).throwOnError().catch(() => {
+    try {
+      await adminClient.from('payment_orders').insert({
+        order_id: orderId,
+        user_id: userId,
+        email,
+        amount: PREMIUM_PRICE,
+        status: 'pending',
+        gateway: 'pakasir',
+      })
+    } catch (_) {
       // Tabel belum ada (migration pending) — tidak block flow
-    })
+    }
 
     // Buat payment URL
     const redirectUrl = `${APP_URL}/payment-success?order_id=${encodeURIComponent(orderId)}`
